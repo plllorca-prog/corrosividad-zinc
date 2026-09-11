@@ -111,24 +111,28 @@ def calcular_corrosividad_pvh(T, RH, P_D, S_D, t_anos):
     return round(r_cz, 2), round(d_acumulado_zn, 2), categoria, cat_code
 
 # 2. LÓGICA COMERCIAL DE SELECCIÓN PVH (ESPESORES 20 µm / 35 µm)
+# 2. LÓGICA COMERCIAL PVH (Z275 HASTA 25.0 µm)
 def seleccionar_oferta_pvh(cat_code, t_anos, d_acumulado_zn):
-    if d_acumulado_zn <= 20.0:
+    # Z275 cubre hasta 25.0 µm de degradación acumulada (incluye C3 a 30a)
+    if d_acumulado_zn <= 25.0:
         oferta_tipo = "Oferta Común (Estándar)"
         rec_recomendado = "Z275 (G90)"
-        espesor_rec = "20.0 µm por cara"
-        justificacion = f"Degradación acumulada ({d_acumulado_zn} µm) ≤ 20.0 µm. Apto Z275."
+        espesor_rec = "20.0 µm por cara (Válido hasta 25.0 µm de pérdida)"
+        justificacion = f"Degradación acumulada ({d_acumulado_zn} µm) ≤ 25.0 µm. Cubierto comercialmente por Z275."
         
+    # Salto a Z350 / ZM310 para degradación entre 25.1 µm y 35.0 µm
     elif d_acumulado_zn <= 35.0:
         oferta_tipo = "Oferta Común (Nivel 35 µm)"
         rec_recomendado = "Z350 / ZM310"
         espesor_rec = "25.0 µm ZM310 (Eq. 75 µm Zinc) ó 25.0 µm Z350"
-        justificacion = f"Degradación acumulada ({d_acumulado_zn} µm) supera los 20 µm. Requiere salto a recubrimiento Z350 / ZM310."
+        justificacion = f"Degradación acumulada ({d_acumulado_zn} µm) supera los 25.0 µm. Requiere salto a Z350 / ZM310."
         
+    # Salto a ZM430 para degradaciones de 35.1 µm a 105.0 µm
     elif d_acumulado_zn <= 105.0:
         oferta_tipo = "Oferta Grande / Cliente Importante"
         rec_recomendado = "ZM430"
         espesor_rec = "35.0 µm por cara (Eq. 105 µm Zinc)"
-        justificacion = f"Degradación acumulada ({d_acumulado_zn} µm) excede los 35 µm. Requiere ZM430."
+        justificacion = f"Degradación acumulada ({d_acumulado_zn} µm) excede los 35.0 µm. Requiere ZM430."
         
     elif d_acumulado_zn <= 150.0:
         oferta_tipo = "Oferta Grande / Cliente Importante"
@@ -143,7 +147,6 @@ def seleccionar_oferta_pvh(cat_code, t_anos, d_acumulado_zn):
         justificacion = "Ambiente de extrema agresividad (C5/CX)."
 
     return oferta_tipo, rec_recomendado, espesor_rec, justificacion
-
 # 3. CONEXIÓN API NASA POWER
 @st.cache_data(ttl=86400)
 def obtener_clima_nasa_15anos(lat, lon, num_anos=15):
@@ -316,4 +319,3 @@ with tab_calc:
                 )
             else:
                 st.error("❌ No se pudieron descargar datos satelitales para las coordenadas indicadas.")
-                
