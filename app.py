@@ -5,6 +5,9 @@ import datetime
 import math
 import pandas as pd
 import io
+import pypdf
+from google import genai
+from google.genai import types
 
 # CONFIGURACIÓN PÁGINA WEB PVH
 st.set_page_config(
@@ -53,46 +56,6 @@ st.markdown("""
         font-weight: bold;
         letter-spacing: 1px;
     }
-    .result-focus {
-        padding: 24px 26px;
-        border-radius: 10px;
-        min-height: 178px;
-        margin: 8px 0 18px 0;
-    }
-    .corrosion-focus {
-        background: linear-gradient(135deg, #172554 0%, #1e3a8a 100%);
-        border: 1px solid #3b82f6;
-    }
-    .material-focus {
-        background: linear-gradient(135deg, #7c2d12 0%, #c2410c 100%);
-        border: 1px solid #fb923c;
-    }
-    .focus-label {
-        color: #dbeafe;
-        font-size: 13px;
-        font-weight: 700;
-        letter-spacing: 1px;
-        text-transform: uppercase;
-        margin-bottom: 12px;
-    }
-    .material-focus .focus-label {
-        color: #ffedd5;
-    }
-    .focus-value {
-        color: #ffffff;
-        font-size: 28px;
-        font-weight: 800;
-        line-height: 1.15;
-        margin-bottom: 12px;
-    }
-    .focus-detail {
-        color: #bfdbfe;
-        font-size: 14px;
-        line-height: 1.4;
-    }
-    .material-focus .focus-detail {
-        color: #fed7aa;
-    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -103,8 +66,8 @@ TABLA_PREGALVANIZADO = [
     {"Designacion": "Z180", "Espesor_um": 13.0, "Tipo": "Standard Pregalvanized"},
     {"Designacion": "Z200", "Espesor_um": 14.0, "Tipo": "Standard Pregalvanized"},
     {"Designacion": "Z225", "Espesor_um": 16.0, "Tipo": "Standard Pregalvanized"},
-    {"Designacion": "Z275 (G90)", "Espesor_um": 20.0, "Tipo": "Oferta Comun PVH"},
-    {"Designacion": "Z350", "Espesor_um": 25.0, "Tipo": "Oferta Especial / Salto 35um"},
+    {"Designacion": "Z275 (G90)", "Espesor_um": 20.0, "Tipo": "Oferta Comun PVH (hasta 25µm)"},
+    {"Designacion": "Z350", "Espesor_um": 25.0, "Tipo": "Oferta Especial / Salto >25µm"},
     {"Designacion": "Z450 (G140)", "Espesor_um": 32.0, "Tipo": "Oferta Especial"},
     {"Designacion": "Z600 (G185)", "Espesor_um": 42.0, "Tipo": "Oferta Especial"},
 ]
@@ -116,7 +79,7 @@ TABLA_MAGNELIS = [
     {"Designacion": "ZM175", "Espesor_um": 14.0, "Eq_Zinc_um": 42.0},
     {"Designacion": "ZM200", "Espesor_um": 16.0, "Eq_Zinc_um": 48.0},
     {"Designacion": "ZM250", "Espesor_um": 20.0, "Eq_Zinc_um": 60.0},
-    {"Designacion": "ZM310", "Espesor_um": 25.0, "Eq_Zinc_um": 75.0},  # Salto comercial 35um
+    {"Designacion": "ZM310", "Espesor_um": 25.0, "Eq_Zinc_um": 75.0},
     {"Designacion": "ZM430", "Espesor_um": 35.0, "Eq_Zinc_um": 105.0},
     {"Designacion": "ZM620", "Espesor_um": 50.0, "Eq_Zinc_um": 150.0},
 ]
@@ -133,7 +96,6 @@ def calcular_corrosividad_pvh(T, RH, P_D, S_D, t_anos):
     
     r_cz = term_so2 + term_cl
 
-    # Categorización ISO
     if r_cz <= 0.10: categoria, cat_code = "C1 / C2 Low", "C1"
     elif r_cz <= 0.40: categoria, cat_code = "C2 Mean", "C2"
     elif r_cz <= 0.70: categoria, cat_code = "C2 High / C3 Low", "C2"
@@ -144,30 +106,25 @@ def calcular_corrosividad_pvh(T, RH, P_D, S_D, t_anos):
     elif r_cz <= 6.30: categoria, cat_code = "C5 Mean", "C5"
     else: categoria, cat_code = "C5 High / CX", "CX"
 
-    # Ecuación exponencial de degradación acumulada a t años: d = r_cz * (t ^ b_zinc)
     b_zinc = 0.813
     d_acumulado_zn = r_cz * (t_anos ** b_zinc)
 
     return round(r_cz, 2), round(d_acumulado_zn, 2), categoria, cat_code
 
-# 2. LÓGICA COMERCIAL DE SELECCIÓN PVH (ESPESORES 20 µm / 35 µm)
-# 2. LÓGICA COMERCIAL PVH (Z275 HASTA 25.0 µm)
+# 2. LÓGICA COMERCIAL PVH (Z275 VALIDO HASTA 25.0 µm)
 def seleccionar_oferta_pvh(cat_code, t_anos, d_acumulado_zn):
-    # Z275 cubre hasta 25.0 µm de degradación acumulada (incluye C3 a 30a)
     if d_acumulado_zn <= 25.0:
         oferta_tipo = "Oferta Común (Estándar)"
         rec_recomendado = "Z275 (G90)"
-        espesor_rec = "20.0 µm por cara (Válido hasta 25.0 µm de pérdida)"
-        justificacion = f"Degradación acumulada ({d_acumulado_zn} µm) ≤ 25.0 µm. Cubierto comercialmente por Z275."
+        espesor_rec = "20.0 µm por cara (Válido comercialmente hasta 25.0 µm de pérdida)"
+        justificacion = f"Degradación acumulada ({d_acumulado_zn} µm) ≤ 25.0 µm. Cubierto por la oferta estándar Z275."
         
-    # Salto a Z350 / ZM310 para degradación entre 25.1 µm y 35.0 µm
     elif d_acumulado_zn <= 35.0:
         oferta_tipo = "Oferta Común (Nivel 35 µm)"
         rec_recomendado = "Z350 / ZM310"
         espesor_rec = "25.0 µm ZM310 (Eq. 75 µm Zinc) ó 25.0 µm Z350"
-        justificacion = f"Degradación acumulada ({d_acumulado_zn} µm) supera los 25.0 µm. Requiere salto a Z350 / ZM310."
+        justificacion = f"Degradación acumulada ({d_acumulado_zn} µm) supera los 25.0 µm. Requiere salto a recubrimiento Z350 / ZM310."
         
-    # Salto a ZM430 para degradaciones de 35.1 µm a 105.0 µm
     elif d_acumulado_zn <= 105.0:
         oferta_tipo = "Oferta Grande / Cliente Importante"
         rec_recomendado = "ZM430"
@@ -187,7 +144,39 @@ def seleccionar_oferta_pvh(cat_code, t_anos, d_acumulado_zn):
         justificacion = "Ambiente de extrema agresividad (C5/CX)."
 
     return oferta_tipo, rec_recomendado, espesor_rec, justificacion
-# 3. CONEXIÓN API NASA POWER
+
+# 3. FUNCIONES DE LECTURA DE PDF E IA CON GOOGLE GEMINI
+def extraer_texto_pdf(pdf_file):
+    reader = pypdf.PdfReader(pdf_file)
+    texto = ""
+    for page in reader.pages[:40]:
+        texto += page.extract_text() or ""
+    return texto
+
+def analizar_informe_pvh_gemini(texto_pdf, api_key):
+    client = genai.Client(api_key=api_key)
+    
+    prompt = f"""
+    Eres un ingeniero especialista en corrosión y estructuras solares de PV Hardware (PVH).
+    Analiza el siguiente texto extraído de un estudio geotécnico/ambiental de un cliente y extrae de forma muy sintética y clara los datos clave de corrosión:
+
+    1. **Corrosividad Atmosférica (ISO 9223):** Categoría ambiental (C1 a CX) o tasa de corrosión del Zinc ($r_{{cz}}$) en el aire si se menciona.
+    2. **Corrosividad del Suelo (DIN 50929-3 / ASTM):** Resistividad (Ohm.m), pH, Sulfatos, Cloruros, Acidez Baumann-Gully y grado de agresividad para el acero/zinc.
+    3. **Tasas de Corrosión del Zinc en Suelo:** Pérdida en µm/año y recubrimiento/espesor recomendado por el laboratorio de estudio.
+    4. **Recomendaciones de Ingeniería:** Observaciones para hincas, pre-drilling, recubrimientos o protección de seguidores fotovoltaicos.
+    5. **Valores Recomendados para Ajustar Inputs en la App:** Indica valores numéricos sugeridos de SO2 (mg/m²·d) y Cl- (mg/m²·d) para simular este proyecto en la calculadora ambiental de PVH.
+
+    Texto del informe:
+    {texto_pdf[:30000]}
+    """
+    
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=prompt
+    )
+    return response.text
+
+# 4. CONEXIÓN API NASA POWER
 @st.cache_data(ttl=86400)
 def obtener_clima_nasa_15anos(lat, lon, num_anos=15):
     ano_fin = datetime.datetime.now().year - 1
@@ -265,7 +254,35 @@ st.sidebar.markdown("---")
 btn_calcular = st.sidebar.button("⚡ Consultar NASA & Calcular PVH", type="primary")
 
 # PESTAÑAS
-tab_calc, tab_tablas, tab_mapa = st.tabs(["📊 Análisis y Oferta PVH", "📋 Tablas de Referencia PVH", "🗺️ Emplazamiento Solar"])
+tab_calc, tab_pdf, tab_tablas, tab_mapa = st.tabs([
+    "📊 Análisis y Oferta PVH", 
+    "📄 Analizador Inteligente PDF (Gemini AI)",
+    "📋 Tablas de Referencia PVH", 
+    "🗺️ Emplazamiento Solar"
+])
+
+with tab_pdf:
+    st.subheader("🤖 Analizador de Informes Geotécnicos con Google Gemini")
+    st.write("Sube el estudio geotécnico o ambiental en PDF provisto por el cliente para extraer automáticamente los parámetros clave de corrosividad (aire y suelo).")
+    
+    uploaded_pdf = st.file_uploader("Cargar informe técnico en PDF", type=["pdf"])
+    api_key_input = st.text_input("Gemini API Key (opcional si está guardada en los Secretos de Streamlit)", type="password")
+    
+    if uploaded_pdf is not None:
+        if st.button("🔍 Analizar PDF con Gemini IA"):
+            api_key = api_key_input or st.secrets.get("GEMINI_API_KEY", "")
+            if not api_key:
+                st.error("⚠️ Introduce una API Key válida de Gemini para ejecutar el análisis.")
+            else:
+                with st.spinner("Leyendo documento y analizando secciones de corrosión con Gemini..."):
+                    try:
+                        texto_doc = extraer_texto_pdf(uploaded_pdf)
+                        resumen_gemini = analizar_informe_pvh_gemini(texto_doc, api_key)
+                        
+                        st.success("✅ Análisis técnico completado:")
+                        st.markdown(resumen_gemini)
+                    except Exception as e:
+                        st.error(f"❌ Error al procesar el documento con Gemini: {str(e)}")
 
 with tab_mapa:
     st.subheader("Ubicación de la Planta Fotovoltaica")
@@ -291,29 +308,6 @@ with tab_calc:
                 oferta_tipo, rec_recomendado, espesor_rec, justificacion = seleccionar_oferta_pvh(cat_code, t_anos, d_acumulado_zn)
                 
                 st.subheader("Resultados de Corrosividad Atmosférica")
-
-                # Resultado principal: categoría ambiental y material recomendado.
-                focus_category, focus_material = st.columns(2)
-                with focus_category:
-                    st.markdown(
-                        f'''<div class="result-focus corrosion-focus">
-                            <div class="focus-label">Categoría de corrosión ISO 9223</div>
-                            <div class="focus-value">{categoria}</div>
-                            <div class="focus-detail">Clasificación ambiental principal del proyecto</div>
-                        </div>''',
-                        unsafe_allow_html=True
-                    )
-                with focus_material:
-                    st.markdown(
-                        f'''<div class="result-focus material-focus">
-                            <div class="focus-label">Material recomendado</div>
-                            <div class="focus-value">{rec_recomendado}</div>
-                            <div class="focus-detail">{espesor_rec}</div>
-                        </div>''',
-                        unsafe_allow_html=True
-                    )
-
-                st.markdown(f"**Criterio de selección:** {justificacion}")
                 
                 c1, c2, c3, c4 = st.columns(4)
                 with c1:
@@ -327,7 +321,9 @@ with tab_calc:
                         st.metric(f"Degradación d({t_anos}a)", f"{d_acumulado_zn} µm")
                 with c4:
                     with st.container(border=True):
-                        st.metric("Código ISO", cat_code)
+                        st.metric("Categoría ISO", categoria)
+
+                st.success(f"💼 **{oferta_tipo}:** **{rec_recomendado}** ({espesor_rec})\n\n_{justificacion}_")
                 
                 st.subheader("📋 Informe Técnico de Ingeniería PVH")
                 
@@ -366,7 +362,6 @@ with tab_calc:
                 
                 st.table(df_resumen)
                 
-                # EXPORTACIÓN EXCEL
                 buffer = io.BytesIO()
                 with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
                     df_resumen.to_excel(writer, index=False, sheet_name="PVH Offer Report")
