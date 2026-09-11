@@ -64,7 +64,7 @@ TABLA_PREGALVANIZADO = [
     {"Designacion": "Z200", "Espesor_um": 14.0, "Tipo": "Standard Pregalvanized"},
     {"Designacion": "Z225", "Espesor_um": 16.0, "Tipo": "Standard Pregalvanized"},
     {"Designacion": "Z275 (G90)", "Espesor_um": 20.0, "Tipo": "Oferta Comun PVH"},
-    {"Designacion": "Z350", "Espesor_um": 25.0, "Tipo": "Oferta Especial"},
+    {"Designacion": "Z350", "Espesor_um": 25.0, "Tipo": "Oferta Especial / Salto 35um"},
     {"Designacion": "Z450 (G140)", "Espesor_um": 32.0, "Tipo": "Oferta Especial"},
     {"Designacion": "Z600 (G185)", "Espesor_um": 42.0, "Tipo": "Oferta Especial"},
 ]
@@ -76,7 +76,7 @@ TABLA_MAGNELIS = [
     {"Designacion": "ZM175", "Espesor_um": 14.0, "Eq_Zinc_um": 42.0},
     {"Designacion": "ZM200", "Espesor_um": 16.0, "Eq_Zinc_um": 48.0},
     {"Designacion": "ZM250", "Espesor_um": 20.0, "Eq_Zinc_um": 60.0},
-    {"Designacion": "ZM310", "Espesor_um": 25.0, "Eq_Zinc_um": 75.0},  # Oferta común
+    {"Designacion": "ZM310", "Espesor_um": 25.0, "Eq_Zinc_um": 75.0},  # Salto comercial 35um
     {"Designacion": "ZM430", "Espesor_um": 35.0, "Eq_Zinc_um": 105.0},
     {"Designacion": "ZM620", "Espesor_um": 50.0, "Eq_Zinc_um": 150.0},
 ]
@@ -94,46 +94,53 @@ def calcular_corrosividad_pvh(T, RH, P_D, S_D, t_anos):
     r_cz = term_so2 + term_cl
 
     # Categorización ISO
-    if r_cz <= 0.10: categoria, cat_code = "C1 / C2 Low", "C2"
+    if r_cz <= 0.10: categoria, cat_code = "C1 / C2 Low", "C1"
     elif r_cz <= 0.40: categoria, cat_code = "C2 Mean", "C2"
-    elif r_cz <= 0.70: categoria, cat_code = "C2 High / C3 Low", "C3"
+    elif r_cz <= 0.70: categoria, cat_code = "C2 High / C3 Low", "C2"
     elif r_cz <= 1.40: categoria, cat_code = "C3 Mean", "C3"
-    elif r_cz <= 2.10: categoria, cat_code = "C3 High / C4 Low", "C4"
+    elif r_cz <= 2.10: categoria, cat_code = "C3 High / C4 Low", "C3"
     elif r_cz <= 3.15: categoria, cat_code = "C4 Mean", "C4"
-    elif r_cz <= 4.20: categoria, cat_code = "C4 High / C5 Low", "C5"
+    elif r_cz <= 4.20: categoria, cat_code = "C4 High / C5 Low", "C4"
     elif r_cz <= 6.30: categoria, cat_code = "C5 Mean", "C5"
     else: categoria, cat_code = "C5 High / CX", "CX"
 
-    # Ecuación de degradación acumulada a t años: d = r_cz * (t ^ b_zinc)
+    # Ecuación exponencial de degradación acumulada a t años: d = r_cz * (t ^ b_zinc)
     b_zinc = 0.813
     d_acumulado_zn = r_cz * (t_anos ** b_zinc)
 
     return round(r_cz, 2), round(d_acumulado_zn, 2), categoria, cat_code
 
-# 2. LÓGICA COMERCIAL DE SELECCIÓN PVH
+# 2. LÓGICA COMERCIAL DE SELECCIÓN PVH (ESPESORES 20 µm / 35 µm)
 def seleccionar_oferta_pvh(cat_code, t_anos, d_acumulado_zn):
-    if (cat_code in ["C1", "C2", "C3"]) and (t_anos < 40) and (d_acumulado_zn <= 20.0):
+    if d_acumulado_zn <= 20.0:
         oferta_tipo = "Oferta Común (Estándar)"
         rec_recomendado = "Z275 (G90)"
         espesor_rec = "20.0 µm por cara"
-        justificacion = "C3 o inferior a menos de 40 años de vida útil."
-    elif (cat_code in ["C1", "C2", "C3", "C4"]) and (d_acumulado_zn <= 75.0):
-        oferta_tipo = "Oferta Común (Estándar Magnelis®)"
-        rec_recomendado = "ZM310"
-        espesor_rec = "25.0 µm por cara (Eq. 75 µm Zinc)"
-        justificacion = "Requerido para C4 o más, o C3 a >= 40 años de vida útil."
+        justificacion = f"Degradación acumulada ({d_acumulado_zn} µm) ≤ 20.0 µm. Apto Z275."
+        
+    elif d_acumulado_zn <= 35.0:
+        oferta_tipo = "Oferta Común (Nivel 35 µm)"
+        rec_recomendado = "Z350 / ZM310"
+        espesor_rec = "25.0 µm ZM310 (Eq. 75 µm Zinc) ó 25.0 µm Z350"
+        justificacion = f"Degradación acumulada ({d_acumulado_zn} µm) supera los 20 µm. Requiere salto a recubrimiento Z350 / ZM310."
+        
+    elif d_acumulado_zn <= 105.0:
+        oferta_tipo = "Oferta Grande / Cliente Importante"
+        rec_recomendado = "ZM430"
+        espesor_rec = "35.0 µm por cara (Eq. 105 µm Zinc)"
+        justificacion = f"Degradación acumulada ({d_acumulado_zn} µm) excede los 35 µm. Requiere ZM430."
+        
+    elif d_acumulado_zn <= 150.0:
+        oferta_tipo = "Oferta Grande / Cliente Importante"
+        rec_recomendado = "ZM620"
+        espesor_rec = "50.0 µm por cara (Eq. 150 µm Zinc)"
+        justificacion = "Degradación elevada. Requiere recubrimiento pesado ZM620."
+        
     else:
         oferta_tipo = "Oferta Grande / Cliente Importante"
-        if d_acumulado_zn <= 105.0:
-            rec_recomendado = "ZM430"
-            espesor_rec = "35.0 µm por cara (Eq. 105 µm Zinc)"
-        elif d_acumulado_zn <= 150.0:
-            rec_recomendado = "ZM620"
-            espesor_rec = "50.0 µm por cara (Eq. 150 µm Zinc)"
-        else:
-            rec_recomendado = "Galvanizado de Tubo (HDG) / Sistema Dúplex"
-            espesor_rec = "> 85.0 µm"
-        justificacion = "Entorno de alta agresividad (C5/CX). Requiere consultar precio especial."
+        rec_recomendado = "Galvanizado de Tubo (HDG) / Sistema Dúplex"
+        espesor_rec = "> 85.0 µm"
+        justificacion = "Ambiente de extrema agresividad (C5/CX)."
 
     return oferta_tipo, rec_recomendado, espesor_rec, justificacion
 
@@ -174,10 +181,10 @@ def obtener_clima_nasa_15anos(lat, lon, num_anos=15):
     except Exception:
         return None, None, ano_inicio, ano_fin, 0
 
-# CABECERA INSTITUCIONAL
+# CABECERA INSTITUCIONAL PVH
 st.markdown('<span class="pvh-badge">PV HARDWARE (PVH) ENGINEERING TOOL</span>', unsafe_allow_html=True)
 st.markdown('<div class="pvh-header">⚡ ISO 9223 Corrosivity & Commercial Coating Selector</div>', unsafe_allow_html=True)
-st.markdown('<div class="pvh-subtitle">Cálculo de degradación exponencial b-zinc (0.813) y recomendación de catálogo comercial PVH (Z275 / ZM310 / ZM430).</div>', unsafe_allow_html=True)
+st.markdown('<div class="pvh-subtitle">Cálculo de degradación exponencial b-zinc (0.813) y recomendación de catálogo comercial PVH (Z275 / Z350 / ZM310 / ZM430).</div>', unsafe_allow_html=True)
 
 # BARRA LATERAL
 st.sidebar.markdown("### ☀️ PVH Project Location")
@@ -186,7 +193,7 @@ longitud = st.sidebar.number_input("Longitud", value=28.1700, format="%.4f")
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("### ⏱️ Parámetros de Diseño PVH")
-t_anos = st.sidebar.slider("Periodo de diseño t (años)", 10, 50, 35, step=5)
+t_anos = st.sidebar.slider("Periodo de diseño t (años)", 10, 50, 30, step=5)
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 🏭 Contaminantes Ambientales (ISO 9223)")
