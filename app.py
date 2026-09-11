@@ -175,19 +175,12 @@ def analizar_informe_pvh_gemini(texto_pdf, api_key_input=""):
     {texto_pdf[:30000]}
     """
     
-    # Intento principal con gemini-2.5-flash y fallback de seguridad
-    modelos_disponibles = ["gemini-2.5-flash", "gemini-2.0-flash"]
-    
-    for modelo in modelos_disponibles:
-        try:
-            response = client.models.generate_content(
-                model=modelo,
-                contents=prompt
-            )
-            return response.text
-        except Exception as e:
-            if modelo == modelos_disponibles[-1]:
-                raise e
+    # Modelo exacto requerido por la API actual de Google
+    response = client.models.generate_content(
+        model="gemini-3.6-flash",
+        contents=prompt
+    )
+    return response.text
 
 # 4. CONEXIÓN API NASA POWER
 @st.cache_data(ttl=86400)
