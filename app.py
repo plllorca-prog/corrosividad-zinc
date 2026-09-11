@@ -53,6 +53,46 @@ st.markdown("""
         font-weight: bold;
         letter-spacing: 1px;
     }
+    .result-focus {
+        padding: 24px 26px;
+        border-radius: 10px;
+        min-height: 178px;
+        margin: 8px 0 18px 0;
+    }
+    .corrosion-focus {
+        background: linear-gradient(135deg, #172554 0%, #1e3a8a 100%);
+        border: 1px solid #3b82f6;
+    }
+    .material-focus {
+        background: linear-gradient(135deg, #7c2d12 0%, #c2410c 100%);
+        border: 1px solid #fb923c;
+    }
+    .focus-label {
+        color: #dbeafe;
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        margin-bottom: 12px;
+    }
+    .material-focus .focus-label {
+        color: #ffedd5;
+    }
+    .focus-value {
+        color: #ffffff;
+        font-size: 28px;
+        font-weight: 800;
+        line-height: 1.15;
+        margin-bottom: 12px;
+    }
+    .focus-detail {
+        color: #bfdbfe;
+        font-size: 14px;
+        line-height: 1.4;
+    }
+    .material-focus .focus-detail {
+        color: #fed7aa;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -251,6 +291,29 @@ with tab_calc:
                 oferta_tipo, rec_recomendado, espesor_rec, justificacion = seleccionar_oferta_pvh(cat_code, t_anos, d_acumulado_zn)
                 
                 st.subheader("Resultados de Corrosividad Atmosférica")
+
+                # Resultado principal: categoría ambiental y material recomendado.
+                focus_category, focus_material = st.columns(2)
+                with focus_category:
+                    st.markdown(
+                        f'''<div class="result-focus corrosion-focus">
+                            <div class="focus-label">Categoría de corrosión ISO 9223</div>
+                            <div class="focus-value">{categoria}</div>
+                            <div class="focus-detail">Clasificación ambiental principal del proyecto</div>
+                        </div>''',
+                        unsafe_allow_html=True
+                    )
+                with focus_material:
+                    st.markdown(
+                        f'''<div class="result-focus material-focus">
+                            <div class="focus-label">Material recomendado</div>
+                            <div class="focus-value">{rec_recomendado}</div>
+                            <div class="focus-detail">{espesor_rec}</div>
+                        </div>''',
+                        unsafe_allow_html=True
+                    )
+
+                st.markdown(f"**Criterio de selección:** {justificacion}")
                 
                 c1, c2, c3, c4 = st.columns(4)
                 with c1:
@@ -264,10 +327,7 @@ with tab_calc:
                         st.metric(f"Degradación d({t_anos}a)", f"{d_acumulado_zn} µm")
                 with c4:
                     with st.container(border=True):
-                        st.metric("Categoría ISO", categoria)
-
-                # CUADRO COMERCIAL PVH
-                st.success(f"💼 **{oferta_tipo}:** **{rec_recomendado}** ({espesor_rec})\n\n_{justificacion}_")
+                        st.metric("Código ISO", cat_code)
                 
                 st.subheader("📋 Informe Técnico de Ingeniería PVH")
                 
