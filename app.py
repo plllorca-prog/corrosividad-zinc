@@ -154,7 +154,6 @@ def extraer_texto_pdf(pdf_file):
     return texto
 
 def analizar_informe_pvh_gemini(texto_pdf, api_key_input=""):
-    # Priorizar la clave introducida en pantalla; si está vacía, usar los Secretos o variables de entorno
     api_key = api_key_input or st.secrets.get("GEMINI_API_KEY", "")
     
     if not api_key:
@@ -176,12 +175,19 @@ def analizar_informe_pvh_gemini(texto_pdf, api_key_input=""):
     {texto_pdf[:30000]}
     """
     
-    # Cambiado a gemini-1.5-flash (compatible y disponible universalmente)
-    response = client.models.generate_content(
-        model="gemini-1.5-flash",
-        contents=prompt
-    )
-    return response.text
+    # Intento principal con gemini-2.5-flash y fallback de seguridad
+    modelos_disponibles = ["gemini-2.5-flash", "gemini-2.0-flash"]
+    
+    for modelo in modelos_disponibles:
+        try:
+            response = client.models.generate_content(
+                model=modelo,
+                contents=prompt
+            )
+            return response.text
+        except Exception as e:
+            if modelo == modelos_disponibles[-1]:
+                raise e
 
 # 4. CONEXIÓN API NASA POWER
 @st.cache_data(ttl=86400)
