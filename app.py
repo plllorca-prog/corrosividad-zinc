@@ -153,7 +153,13 @@ def extraer_texto_pdf(pdf_file):
         texto += page.extract_text() or ""
     return texto
 
-def analizar_informe_pvh_gemini(texto_pdf, api_key):
+def analizar_informe_pvh_gemini(texto_pdf, api_key_input=""):
+    # Priorizar la clave introducida en pantalla; si está vacía, usar los Secretos o variables de entorno
+    api_key = api_key_input or st.secrets.get("GEMINI_API_KEY", "")
+    
+    if not api_key:
+        raise ValueError("No se encontró una API Key de Gemini válida.")
+        
     client = genai.Client(api_key=api_key)
     
     prompt = f"""
@@ -170,8 +176,9 @@ def analizar_informe_pvh_gemini(texto_pdf, api_key):
     {texto_pdf[:30000]}
     """
     
+    # Cambiado a gemini-1.5-flash (compatible y disponible universalmente)
     response = client.models.generate_content(
-        model="gemini-2.5-flash",
+        model="gemini-1.5-flash",
         contents=prompt
     )
     return response.text
