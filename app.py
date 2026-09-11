@@ -6,14 +6,14 @@ import math
 import pandas as pd
 import io
 
-# CONFIGURACIÓN DE LA PÁGINA WEB - ESTILO PVH
+# CONFIGURACIÓN PÁGINA WEB PVH
 st.set_page_config(
-    page_title="PVH | ISO 9223 Corrosion Assessment Tool",
+    page_title="PVH | ISO 9223 & Commercial Coating Selector",
     page_icon="☀️",
     layout="wide"
 )
 
-# ESTILOS CSS PERSONALIZADOS (PALETA DE COLORES PVH)
+# ESTILOS CSS ESTILO PVH
 st.markdown("""
     <style>
     .stButton>button {
@@ -56,8 +56,33 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 1. MOTOR DE CÁLCULO ISO 9223 (ZINC)
-def calcular_corrosividad_zn(T, RH, P_D, S_D):
+# TABLAS DE REFERENCIA DE RECUBRIMIENTOS PVH
+TABLA_PREGALVANIZADO = [
+    {"Designacion": "Z100", "Espesor_um": 7.0, "Tipo": "Standard Pregalvanized"},
+    {"Designacion": "Z140", "Espesor_um": 10.0, "Tipo": "Standard Pregalvanized"},
+    {"Designacion": "Z180", "Espesor_um": 13.0, "Tipo": "Standard Pregalvanized"},
+    {"Designacion": "Z200", "Espesor_um": 14.0, "Tipo": "Standard Pregalvanized"},
+    {"Designacion": "Z225", "Espesor_um": 16.0, "Tipo": "Standard Pregalvanized"},
+    {"Designacion": "Z275 (G90)", "Espesor_um": 20.0, "Tipo": "Oferta Comun PVH"},
+    {"Designacion": "Z350", "Espesor_um": 25.0, "Tipo": "Oferta Especial"},
+    {"Designacion": "Z450 (G140)", "Espesor_um": 32.0, "Tipo": "Oferta Especial"},
+    {"Designacion": "Z600 (G185)", "Espesor_um": 42.0, "Tipo": "Oferta Especial"},
+]
+
+TABLA_MAGNELIS = [
+    {"Designacion": "ZM70", "Espesor_um": 5.0, "Eq_Zinc_um": 15.0},
+    {"Designacion": "ZM90", "Espesor_um": 7.0, "Eq_Zinc_um": 21.0},
+    {"Designacion": "ZM120", "Espesor_um": 10.0, "Eq_Zinc_um": 30.0},
+    {"Designacion": "ZM175", "Espesor_um": 14.0, "Eq_Zinc_um": 42.0},
+    {"Designacion": "ZM200", "Espesor_um": 16.0, "Eq_Zinc_um": 48.0},
+    {"Designacion": "ZM250", "Espesor_um": 20.0, "Eq_Zinc_um": 60.0},
+    {"Designacion": "ZM310", "Espesor_um": 25.0, "Eq_Zinc_um": 75.0},  # Oferta común
+    {"Designacion": "ZM430", "Espesor_um": 35.0, "Eq_Zinc_um": 105.0},
+    {"Designacion": "ZM620", "Espesor_um": 50.0, "Eq_Zinc_um": 150.0},
+]
+
+# 1. CÁLCULO DE CORROSIVIDAD ISO 9223 & EXPONENCIAL PVH
+def calcular_corrosividad_pvh(T, RH, P_D, S_D, t_anos):
     if T <= 10:
         f_Zn = 0.038 * (T - 10)
     else:
@@ -66,23 +91,53 @@ def calcular_corrosividad_zn(T, RH, P_D, S_D):
     term_so2 = 0.0129 * (P_D ** 0.44) * math.exp(0.046 * RH + f_Zn)
     term_cl = 0.0175 * (S_D ** 0.52) * math.exp(0.008 * RH + 0.038 * T)
     
-    r_corr = term_so2 + term_cl
+    r_cz = term_so2 + term_cl
 
-    if r_corr <= 0.05: categoria = "C1.0 (Muy baja)"
-    elif r_corr <= 0.10: categoria = "C1.5 (Muy baja - límite)"
-    elif r_corr <= 0.40: categoria = "C2.0 (Baja)"
-    elif r_corr <= 0.70: categoria = "C2.5 (Baja - alto)"
-    elif r_corr <= 1.40: categoria = "C3.0 (Moderada)"
-    elif r_corr <= 2.10: categoria = "C3.5 (Moderada - severo)"
-    elif r_corr <= 3.15: categoria = "C4.0 (Alta)"
-    elif r_corr <= 4.20: categoria = "C4.5 (Alta - severo)"
-    elif r_corr <= 6.30: categoria = "C5.0 (Muy alta)"
-    elif r_corr <= 8.40: categoria = "C5.5 (Muy alta - crítico)"
-    else: categoria = "CX (Extrema)"
+    # Categorización ISO
+    if r_cz <= 0.10: categoria, cat_code = "C1 / C2 Low", "C2"
+    elif r_cz <= 0.40: categoria, cat_code = "C2 Mean", "C2"
+    elif r_cz <= 0.70: categoria, cat_code = "C2 High / C3 Low", "C3"
+    elif r_cz <= 1.40: categoria, cat_code = "C3 Mean", "C3"
+    elif r_cz <= 2.10: categoria, cat_code = "C3 High / C4 Low", "C4"
+    elif r_cz <= 3.15: categoria, cat_code = "C4 Mean", "C4"
+    elif r_cz <= 4.20: categoria, cat_code = "C4 High / C5 Low", "C5"
+    elif r_cz <= 6.30: categoria, cat_code = "C5 Mean", "C5"
+    else: categoria, cat_code = "C5 High / CX", "CX"
 
-    return round(r_corr, 2), categoria
+    # Ecuación de degradación acumulada a t años: d = r_cz * (t ^ b_zinc)
+    b_zinc = 0.813
+    d_acumulado_zn = r_cz * (t_anos ** b_zinc)
 
-# 2. CONEXIÓN API NASA POWER (15 AÑOS DE HISTÓRICO)
+    return round(r_cz, 2), round(d_acumulado_zn, 2), categoria, cat_code
+
+# 2. LÓGICA COMERCIAL DE SELECCIÓN PVH
+def seleccionar_oferta_pvh(cat_code, t_anos, d_acumulado_zn):
+    if (cat_code in ["C1", "C2", "C3"]) and (t_anos < 40) and (d_acumulado_zn <= 20.0):
+        oferta_tipo = "Oferta Común (Estándar)"
+        rec_recomendado = "Z275 (G90)"
+        espesor_rec = "20.0 µm por cara"
+        justificacion = "C3 o inferior a menos de 40 años de vida útil."
+    elif (cat_code in ["C1", "C2", "C3", "C4"]) and (d_acumulado_zn <= 75.0):
+        oferta_tipo = "Oferta Común (Estándar Magnelis®)"
+        rec_recomendado = "ZM310"
+        espesor_rec = "25.0 µm por cara (Eq. 75 µm Zinc)"
+        justificacion = "Requerido para C4 o más, o C3 a >= 40 años de vida útil."
+    else:
+        oferta_tipo = "Oferta Grande / Cliente Importante"
+        if d_acumulado_zn <= 105.0:
+            rec_recomendado = "ZM430"
+            espesor_rec = "35.0 µm por cara (Eq. 105 µm Zinc)"
+        elif d_acumulado_zn <= 150.0:
+            rec_recomendado = "ZM620"
+            espesor_rec = "50.0 µm por cara (Eq. 150 µm Zinc)"
+        else:
+            rec_recomendado = "Galvanizado de Tubo (HDG) / Sistema Dúplex"
+            espesor_rec = "> 85.0 µm"
+        justificacion = "Entorno de alta agresividad (C5/CX). Requiere consultar precio especial."
+
+    return oferta_tipo, rec_recomendado, espesor_rec, justificacion
+
+# 3. CONEXIÓN API NASA POWER
 @st.cache_data(ttl=86400)
 def obtener_clima_nasa_15anos(lat, lon, num_anos=15):
     ano_fin = datetime.datetime.now().year - 1
@@ -119,15 +174,19 @@ def obtener_clima_nasa_15anos(lat, lon, num_anos=15):
     except Exception:
         return None, None, ano_inicio, ano_fin, 0
 
-# 3. CABECERA INSTITUCIONAL PVH
+# CABECERA INSTITUCIONAL
 st.markdown('<span class="pvh-badge">PV HARDWARE (PVH) ENGINEERING TOOL</span>', unsafe_allow_html=True)
-st.markdown('<div class="pvh-header">⚡ ISO 9223 Atmospheric Corrosivity Estimator</div>', unsafe_allow_html=True)
-st.markdown('<div class="pvh-subtitle">Evaluación de corrosividad ambiental para seguidores solares y estructuras fotovoltaicas de PVH mediante datos satelitales NASA POWER.</div>', unsafe_allow_html=True)
+st.markdown('<div class="pvh-header">⚡ ISO 9223 Corrosivity & Commercial Coating Selector</div>', unsafe_allow_html=True)
+st.markdown('<div class="pvh-subtitle">Cálculo de degradación exponencial b-zinc (0.813) y recomendación de catálogo comercial PVH (Z275 / ZM310 / ZM430).</div>', unsafe_allow_html=True)
 
 # BARRA LATERAL
 st.sidebar.markdown("### ☀️ PVH Project Location")
 latitud = st.sidebar.number_input("Latitud", value=10.0000, format="%.4f")
 longitud = st.sidebar.number_input("Longitud", value=28.1700, format="%.4f")
+
+st.sidebar.markdown("---")
+st.sidebar.markdown("### ⏱️ Parámetros de Diseño PVH")
+t_anos = st.sidebar.slider("Periodo de diseño t (años)", 10, 50, 35, step=5)
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 🏭 Contaminantes Ambientales (ISO 9223)")
@@ -155,67 +214,83 @@ S_D = st.sidebar.slider("Cl- manual (mg/m²·d)", 1.0, 500.0, 3.0) if opciones_c
 st.sidebar.markdown("---")
 btn_calcular = st.sidebar.button("⚡ Consultar NASA & Calcular PVH", type="primary")
 
-# PESTAÑAS PRINCIPALES
-tab_calc, tab_mapa, tab_pvh = st.tabs(["📊 Análisis y Corrosividad", "🗺️ Emplazamiento Solar", "ℹ️ Sobre PVH & ISO 9223"])
+# PESTAÑAS
+tab_calc, tab_tablas, tab_mapa = st.tabs(["📊 Análisis y Oferta PVH", "📋 Tablas de Referencia PVH", "🗺️ Emplazamiento Solar"])
 
 with tab_mapa:
     st.subheader("Ubicación de la Planta Fotovoltaica")
     df_mapa = pd.DataFrame({"lat": [latitud], "lon": [longitud]})
     st.map(df_mapa, zoom=6)
 
-with tab_pvh:
-    st.markdown(r"""
-    ### PV Hardware (PVH)
-    **PVH** es uno de los líderes mundiales en fabricación de seguidores solares (*trackers*), estructuras fijas y sistemas de control SCADA para plantas fotovoltaicas a gran escala.
-    
-    #### Evaluación según ISO 9223:2012
-    La tasa de pérdida de masa/espesor del Zinc ($g/m^2 \cdot \text{año}$ o $\mu m/\text{año}$) determina la vida útil proyectada del recubrimiento protector en estructuras de acero galvanizado y seguidores solares en condiciones atmosféricas reales.
-    """)
+with tab_tablas:
+    col_t1, col_t2 = st.columns(2)
+    with col_t1:
+        st.markdown("#### Pregalvanizado Convencional (Zinc)")
+        st.dataframe(pd.DataFrame(TABLA_PREGALVANIZADO), width="stretch")
+    with col_t2:
+        st.markdown("#### Magnelis® (ZM - Zinc-Aluminio-Magnesio)")
+        st.dataframe(pd.DataFrame(TABLA_MAGNELIS), width="stretch")
 
 with tab_calc:
     if btn_calcular:
-        with st.spinner("Procesando histórico climático de 15 años de NASA POWER para el proyecto PVH..."):
+        with st.spinner("Procesando histórico climático de 15 años NASA POWER..."):
             T, RH, a_inicio, a_fin, total_dias = obtener_clima_nasa_15anos(latitud, longitud, num_anos=15)
             
             if T is not None and RH is not None:
-                r_corr, categoria = calcular_corrosividad_zn(T, RH, P_D, S_D)
+                r_cz, d_acumulado_zn, categoria, cat_code = calcular_corrosividad_pvh(T, RH, P_D, S_D, t_anos)
+                oferta_tipo, rec_recomendado, espesor_rec, justificacion = seleccionar_oferta_pvh(cat_code, t_anos, d_acumulado_zn)
                 
-                st.subheader("Resultados Principales de Corrosión")
+                st.subheader("Resultados de Corrosividad Atmosférica")
                 
-                col1, col2 = st.columns(2)
-                with col1:
+                c1, c2, c3, c4 = st.columns(4)
+                with c1:
                     with st.container(border=True):
-                        st.metric("Tasa Pérdida de Espesor (Zinc)", f"{r_corr} µm/año")
-                with col2:
+                        st.metric("Tasa Zinc r_cz", f"{r_cz} µm/año")
+                with c2:
                     with st.container(border=True):
-                        st.metric("Categoría Corrosividad ISO 9223", categoria)
+                        st.metric("Exponente b-zinc", "0.813")
+                with c3:
+                    with st.container(border=True):
+                        st.metric(f"Degradación d({t_anos}a)", f"{d_acumulado_zn} µm")
+                with c4:
+                    with st.container(border=True):
+                        st.metric("Categoría ISO", categoria)
+
+                # CUADRO COMERCIAL PVH
+                st.success(f"💼 **{oferta_tipo}:** **{rec_recomendado}** ({espesor_rec})\n\n_{justificacion}_")
                 
-                st.subheader("📋 Informe Técnico del Emplazamiento (PVH Engineering)")
+                st.subheader("📋 Informe Técnico de Ingeniería PVH")
                 
                 df_resumen = pd.DataFrame({
                     "Parámetro Metrológico / Normativo": [
                         "Empresa / Solución",
                         "Coordenadas del Proyecto",
-                        "Periodo Histórico Procesado",
-                        "Registros Diarios Analizados",
+                        "Periodo Histórico Analizado",
                         "Temperatura Media Anual (T)",
                         "Humedad Relativa Media Anual (RH)",
-                        "Tasa Deposición SO2 (P_D)",
-                        "Tasa Deposición Cloruros (S_D)",
-                        "Tasa Corrosión Calibrada (Zinc)",
-                        "Clasificación Corrosividad Atmosférica"
+                        "Categoría Corrosividad ISO 9223",
+                        "Tasa Corrosión Zinc (r_cz)",
+                        "Ecuación Aplicada (t > 20 años)",
+                        "Periodo de Diseño (t)",
+                        "Pérdida Espesor Acumulada d(µm)",
+                        "Tipo de Oferta Comercial",
+                        "Material Recomendado PVH",
+                        "Espesor de Recubrimiento"
                     ],
                     "Valor Obtenido": [
                         "PV Hardware (PVH)",
                         f"Lat {latitud}, Lon {longitud}",
-                        f"{a_inicio} - {a_fin} (15 años)",
-                        f"{total_dias} días",
+                        f"{a_inicio} - {a_fin} ({total_dias} días)",
                         f"{T} °C",
                         f"{RH} %",
-                        f"{P_D} mg/m²·día",
-                        f"{S_D} mg/m²·día",
-                        f"{r_corr} µm/año",
-                        categoria
+                        categoria,
+                        f"{r_cz} µm/año",
+                        f"d = r_cz * (t ^ 0.813)",
+                        f"{t_anos} años",
+                        f"{d_acumulado_zn} µm (Eq. Zinc)",
+                        oferta_tipo,
+                        rec_recomendado,
+                        espesor_rec
                     ]
                 })
                 
@@ -224,13 +299,14 @@ with tab_calc:
                 # EXPORTACIÓN EXCEL
                 buffer = io.BytesIO()
                 with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-                    df_resumen.to_excel(writer, index=False, sheet_name="Informe PVH ISO 9223")
+                    df_resumen.to_excel(writer, index=False, sheet_name="PVH Offer Report")
                 
                 st.download_button(
-                    label="📥 Descargar Informe Técnico PVH en Excel",
+                    label="📥 Descargar Informe Comercial PVH en Excel",
                     data=buffer.getvalue(),
-                    file_name=f"PVH_Corrosion_Report_ISO9223_Lat{latitud}_Lon{longitud}.xlsx",
+                    file_name=f"PVH_Offer_Report_{t_anos}yr_Lat{latitud}_Lon{longitud}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
             else:
                 st.error("❌ No se pudieron descargar datos satelitales para las coordenadas indicadas.")
+                
