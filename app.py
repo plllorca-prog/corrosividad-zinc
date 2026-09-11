@@ -7,7 +7,6 @@ import pandas as pd
 import io
 import pypdf
 from google import genai
-from google.genai import types
 
 # CONFIGURACIÓN PÁGINA WEB PVH
 st.set_page_config(
@@ -16,7 +15,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# ESTILOS CSS ESTILO PVH
+# ESTILOS CSS ESTILO PVH DE ALTO IMPACTO VISUAL
 st.markdown("""
     <style>
     .stButton>button {
@@ -31,10 +30,6 @@ st.markdown("""
     .stButton>button:hover {
         background-color: #FF6A13 !important;
         box-shadow: 0 4px 12px rgba(224, 90, 16, 0.4) !important;
-    }
-    div[data-testid="stMetricValue"] {
-        color: #FF5500 !important;
-        font-weight: bold;
     }
     .pvh-header {
         font-size: 28px;
@@ -55,6 +50,61 @@ st.markdown("""
         font-size: 12px;
         font-weight: bold;
         letter-spacing: 1px;
+    }
+    /* TARJETAS HIGHLIGHT PVH */
+    .hero-card {
+        background-color: #1E293B;
+        border-radius: 12px;
+        padding: 24px;
+        text-align: center;
+        border: 2px solid #334155;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        margin-bottom: 20px;
+    }
+    .hero-title {
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        color: #94A3B8;
+        font-weight: 700;
+        margin-bottom: 8px;
+    }
+    .hero-value-cat {
+        font-size: 48px;
+        font-weight: 900;
+        color: #FF5500;
+        margin: 0;
+        line-height: 1.1;
+    }
+    .hero-value-mat {
+        font-size: 42px;
+        font-weight: 900;
+        color: #10B981;
+        margin: 0;
+        line-height: 1.1;
+    }
+    .hero-subtext {
+        font-size: 14px;
+        color: #CBD5E1;
+        margin-top: 8px;
+        font-weight: 500;
+    }
+    .secondary-metric {
+        background-color: #0F172A;
+        border-radius: 8px;
+        padding: 12px;
+        text-align: center;
+        border: 1px solid #1E293B;
+    }
+    .secondary-title {
+        font-size: 12px;
+        color: #64748B;
+        font-weight: 600;
+    }
+    .secondary-value {
+        font-size: 20px;
+        color: #F8FAFC;
+        font-weight: 700;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -116,7 +166,7 @@ def seleccionar_oferta_pvh(cat_code, t_anos, d_acumulado_zn):
     if d_acumulado_zn <= 25.0:
         oferta_tipo = "Oferta Común (Estándar)"
         rec_recomendado = "Z275 (G90)"
-        espesor_rec = "20.0 µm por cara (Válido comercialmente hasta 25.0 µm de pérdida)"
+        espesor_rec = "20.0 µm por cara (Válido comercialmente hasta 25.0 µm)"
         justificacion = f"Degradación acumulada ({d_acumulado_zn} µm) ≤ 25.0 µm. Cubierto por la oferta estándar Z275."
         
     elif d_acumulado_zn <= 35.0:
@@ -139,13 +189,13 @@ def seleccionar_oferta_pvh(cat_code, t_anos, d_acumulado_zn):
         
     else:
         oferta_tipo = "Oferta Grande / Cliente Importante"
-        rec_recomendado = "Galvanizado de Tubo (HDG) / Sistema Dúplex"
+        rec_recomendado = "Galvanizado HDG / Dúplex"
         espesor_rec = "> 85.0 µm"
         justificacion = "Ambiente de extrema agresividad (C5/CX)."
 
     return oferta_tipo, rec_recomendado, espesor_rec, justificacion
 
-# 3. FUNCIONES DE LECTURA DE PDF E IA CON GOOGLE GEMINI
+# 3. FUNCIONES DE LECTURA E IA CON GEMINI
 def extraer_texto_pdf(pdf_file):
     reader = pypdf.PdfReader(pdf_file)
     texto = ""
@@ -175,7 +225,6 @@ def analizar_informe_pvh_gemini(texto_pdf, api_key_input=""):
     {texto_pdf[:30000]}
     """
     
-    # Modelo exacto requerido por la API actual de Google
     response = client.models.generate_content(
         model="gemini-3.6-flash",
         contents=prompt
@@ -226,8 +275,8 @@ st.markdown('<div class="pvh-subtitle">Cálculo de degradación exponencial b-zi
 
 # BARRA LATERAL
 st.sidebar.markdown("### ☀️ PVH Project Location")
-latitud = st.sidebar.number_input("Latitud", value=10.0000, format="%.4f")
-longitud = st.sidebar.number_input("Longitud", value=28.1700, format="%.4f")
+latitud = st.sidebar.number_input("Latitud", value=39.4700, format="%.4f")
+longitud = st.sidebar.number_input("Longitud", value=-0.3764, format="%.4f")
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("### ⏱️ Parámetros de Diseño PVH")
@@ -244,7 +293,7 @@ opciones_so2 = {
     "Personalizado": -1.0
 }
 sel_so2 = st.sidebar.selectbox("Escenario SO2", list(opciones_so2.keys()))
-P_D = st.sidebar.slider("SO2 manual (mg/m²·d)", 1.0, 200.0, 80.0) if opciones_so2[sel_so2] == -1.0 else opciones_so2[sel_so2]
+P_D = st.sidebar.slider("SO2 manual (mg/m²·d)", 1.0, 200.0, 50.0) if opciones_so2[sel_so2] == -1.0 else opciones_so2[sel_so2]
 
 opciones_cl = {
     "Interior lejano (> 20 km mar) (S0: ≤ 3 mg/m²·d)": 3.0,
@@ -277,18 +326,15 @@ with tab_pdf:
     if uploaded_pdf is not None:
         if st.button("🔍 Analizar PDF con Gemini IA"):
             api_key = api_key_input or st.secrets.get("GEMINI_API_KEY", "")
-            if not api_key:
-                st.error("⚠️ Introduce una API Key válida de Gemini para ejecutar el análisis.")
-            else:
-                with st.spinner("Leyendo documento y analizando secciones de corrosión con Gemini..."):
-                    try:
-                        texto_doc = extraer_texto_pdf(uploaded_pdf)
-                        resumen_gemini = analizar_informe_pvh_gemini(texto_doc, api_key)
-                        
-                        st.success("✅ Análisis técnico completado:")
-                        st.markdown(resumen_gemini)
-                    except Exception as e:
-                        st.error(f"❌ Error al procesar el documento con Gemini: {str(e)}")
+            with st.spinner("Leyendo documento y analizando secciones de corrosión con Gemini IA..."):
+                try:
+                    texto_doc = extraer_texto_pdf(uploaded_pdf)
+                    resumen_gemini = analizar_informe_pvh_gemini(texto_doc, api_key)
+                    
+                    st.success("✅ Análisis técnico completado por Gemini IA:")
+                    st.markdown(resumen_gemini)
+                except Exception as e:
+                    st.error(f"❌ Error al procesar el documento: {str(e)}")
 
 with tab_mapa:
     st.subheader("Ubicación de la Planta Fotovoltaica")
@@ -313,23 +359,53 @@ with tab_calc:
                 r_cz, d_acumulado_zn, categoria, cat_code = calcular_corrosividad_pvh(T, RH, P_D, S_D, t_anos)
                 oferta_tipo, rec_recomendado, espesor_rec, justificacion = seleccionar_oferta_pvh(cat_code, t_anos, d_acumulado_zn)
                 
-                st.subheader("Resultados de Corrosividad Atmosférica")
+                # --- BLOQUE DESTACADO "HERO" (CATEGORÍA ISO Y MATERIAL PVH) ---
+                col_hero1, col_hero2 = st.columns(2)
                 
-                c1, c2, c3, c4 = st.columns(4)
-                with c1:
-                    with st.container(border=True):
-                        st.metric("Tasa Zinc r_cz", f"{r_cz} µm/año")
-                with c2:
-                    with st.container(border=True):
-                        st.metric("Exponente b-zinc", "0.813")
-                with c3:
-                    with st.container(border=True):
-                        st.metric(f"Degradación d({t_anos}a)", f"{d_acumulado_zn} µm")
-                with c4:
-                    with st.container(border=True):
-                        st.metric("Categoría ISO", categoria)
+                with col_hero1:
+                    st.markdown(f"""
+                        <div class="hero-card" style="border-color: #FF5500;">
+                            <div class="hero-title">🌍 CATEGORÍA DE CORROSIVIDAD (ISO 9223)</div>
+                            <div class="hero-value-cat">{categoria}</div>
+                            <div class="hero-subtext">Tasa de degradación atmosférica: <b>{r_cz} µm/año</b></div>
+                        </div>
+                    """, unsafe_allow_html=True)
 
-                st.success(f"💼 **{oferta_tipo}:** **{rec_recomendado}** ({espesor_rec})\n\n_{justificacion}_")
+                with col_hero2:
+                    st.markdown(f"""
+                        <div class="hero-card" style="border-color: #10B981;">
+                            <div class="hero-title">💼 MATERIAL RECOMENDADO PVH ({t_anos} AÑOS)</div>
+                            <div class="hero-value-mat">{rec_recomendado}</div>
+                            <div class="hero-subtext">{espesor_rec}</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+
+                # --- MÉTRICAS SECUNDARIAS ---
+                c1, c2, c3 = st.columns(3)
+                with c1:
+                    st.markdown(f"""
+                        <div class="secondary-metric">
+                            <div class="secondary-title">PÉRDIDA ACUMULADA d({t_anos}a)</div>
+                            <div class="secondary-value">{d_acumulado_zn} µm</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                with c2:
+                    st.markdown(f"""
+                        <div class="secondary-metric">
+                            <div class="secondary-title">EXPONENTE B-ZINC</div>
+                            <div class="secondary-value">0.813</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                with c3:
+                    st.markdown(f"""
+                        <div class="secondary-metric">
+                            <div class="secondary-title">ESTRATEGIA PVH</div>
+                            <div class="secondary-value" style="font-size:15px; color:#10B981;">{oferta_tipo}</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+
+                st.markdown("---")
+                st.info(f"💡 **Justificación Técnica Comercial:** _{justificacion}_")
                 
                 st.subheader("📋 Informe Técnico de Ingeniería PVH")
                 
