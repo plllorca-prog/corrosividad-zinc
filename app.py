@@ -8,7 +8,18 @@ import io
 import pypdf
 from google import genai
 
-st.set_page_config(page_title="PVH | ISO 9223", page_icon="☀️", layout="wide", initial_sidebar_state="expanded")
+# CONFIGURACIÓN PÁGINA WEB PVH
+st.set_page_config(
+    page_title="PVH | ISO 9223 & Commercial Coating Selector",
+    page_icon="☀️",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# ESTILOS CSS OFICIALES PVH (ESTILO PVHARDWARE.COM)
+st.markdown("""
+    
+""", unsafe_allow_html=True)
 
 TABLA_PREGALVANIZADO = [
     {"Designacion": "Z100", "Espesor_um": 7.0, "Tipo": "Standard Pregalvanized"},
