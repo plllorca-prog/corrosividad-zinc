@@ -150,7 +150,60 @@ st.markdown("""
     hr {
         border-color: var(--pvh-line);
     }
+<<<<<<< Updated upstream
 
+=======
+    /* Botón flotante para abrir el sidebar oculto */
+    [data-testid="stSidebarCollapsedControl"],
+    [data-testid="stSidebarCollapsedControl"] > button,
+    button[aria-label*="sidebar" i],
+    button[title*="sidebar" i] {
+        display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        position: fixed !important;
+        top: 0.75rem !important;
+        left: 0.75rem !important;
+        z-index: 999999 !important;
+        width: 2.5rem !important;
+        height: 2.5rem !important;
+        align-items: center !important;
+        justify-content: center !important;
+        background: #ffffff !important;
+        color: #092b49 !important;
+        border: 2px solid #1261a0 !important;
+        border-radius: 5px !important;
+        box-shadow: 0 2px 8px rgba(9, 43, 73, 0.25) !important;
+    }
+
+    [data-testid="stSidebarCollapsedControl"] svg,
+    button[aria-label*="sidebar" i] svg,
+    button[title*="sidebar" i] svg {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        color: #092b49 !important;
+        fill: #092b49 !important;
+        stroke: #092b49 !important;
+    }
+
+    /* Texto visible del informe técnico */
+    [data-testid="stExpander"] [data-testid="stMarkdownContainer"],
+    [data-testid="stExpander"] [data-testid="stMarkdownContainer"] *,
+    [data-testid="stExpander"] table,
+    [data-testid="stExpander"] table th,
+    [data-testid="stExpander"] table td {
+        color: #17324d !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
+
+    [data-testid="stExpander"] table th {
+        background: #eaf4fb !important;
+        color: #092b49 !important;
+        font-weight: 700 !important;
+    }
+>>>>>>> Stashed changes
     @media (max-width: 768px) {
         h1 {
             font-size: 2rem !important;
