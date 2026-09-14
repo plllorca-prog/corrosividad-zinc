@@ -18,7 +18,149 @@ st.set_page_config(
 
 # ESTILOS CSS OFICIALES PVH (ESTILO PVHARDWARE.COM)
 st.markdown("""
-    
+<style>
+    :root {
+        --pvh-navy: #092b49;
+        --pvh-blue: #1261a0;
+        --pvh-sky: #eaf4fb;
+        --pvh-accent: #0b4f8a;
+        --pvh-ink: #17324d;
+        --pvh-line: #d5e1ea;
+    }
+
+    .stApp {
+        background: linear-gradient(135deg, #f7fafc 0%, #eef5f9 52%, #ffffff 100%);
+        color: var(--pvh-ink);
+    }
+
+    [data-testid="stHeader"] {
+        background: rgba(255, 255, 255, 0.92);
+    }
+
+    [data-testid="stSidebar"] {
+        background: var(--pvh-navy);
+        border-right: 4px solid var(--pvh-accent);
+    }
+
+    [data-testid="stSidebar"] * {
+        color: #ffffff;
+    }
+
+    [data-testid="stSidebar"] [data-baseweb="select"] > div,
+    [data-testid="stSidebar"] input {
+        background: #ffffff;
+        color: var(--pvh-ink);
+        border-color: #8fb3cc;
+    }
+
+    [data-testid="stSidebar"] [data-baseweb="select"] svg {
+        fill: var(--pvh-navy);
+    }
+
+    h1 {
+        color: var(--pvh-navy) !important;
+        font-size: clamp(2rem, 4vw, 3.25rem) !important;
+        font-weight: 800 !important;
+        letter-spacing: 0 !important;
+        margin-bottom: 0.15rem !important;
+        border-left: 9px solid var(--pvh-accent);
+        padding-left: 1rem;
+    }
+
+    h2, h3 {
+        color: var(--pvh-navy) !important;
+        font-weight: 750 !important;
+    }
+
+    [data-testid="stCaptionContainer"] {
+        color: #557086;
+        font-size: 1rem;
+    }
+
+    [data-testid="stVerticalBlockBorderWrapper"] {
+        border: 1px solid var(--pvh-line);
+        border-top: 4px solid var(--pvh-blue);
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.82);
+        box-shadow: 0 8px 24px rgba(9, 43, 73, 0.06);
+    }
+
+    [data-testid="stFileUploaderDropzone"] {
+        border: 1px dashed var(--pvh-blue);
+        background: var(--pvh-sky);
+    }
+
+    [data-testid="stFileUploaderDropzone"] button {
+        color: var(--pvh-navy);
+        border-color: var(--pvh-blue);
+    }
+
+    .stButton > button,
+    [data-testid="stDownloadButton"] button {
+        border-radius: 4px;
+        border: 1px solid var(--pvh-blue);
+        font-weight: 700;
+        color: var(--pvh-navy);
+        background: #ffffff;
+        transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
+    }
+
+    .stButton > button:hover,
+    [data-testid="stDownloadButton"] button:hover {
+        color: #ffffff;
+        background: var(--pvh-blue);
+        border-color: var(--pvh-blue);
+        transform: translateY(-1px);
+    }
+
+    .stButton > button[kind="primary"] {
+        color: #ffffff;
+        background: var(--pvh-accent);
+        border-color: var(--pvh-accent);
+    }
+
+    .stButton > button[kind="primary"]:hover {
+        background: var(--pvh-navy);
+        border-color: var(--pvh-navy);
+    }
+
+    [data-testid="stMetric"] {
+        min-height: 122px;
+        padding: 1rem;
+        border: 1px solid var(--pvh-line);
+        border-top: 4px solid var(--pvh-accent);
+        border-radius: 5px;
+        background: #ffffff;
+        box-shadow: 0 5px 16px rgba(9, 43, 73, 0.06);
+    }
+
+    [data-testid="stMetricLabel"] {
+        color: #557086;
+        font-weight: 700;
+    }
+
+    [data-testid="stMetricValue"] {
+        color: var(--pvh-navy);
+    }
+
+    [data-testid="stAlert"] {
+        border-radius: 4px;
+    }
+
+    hr {
+        border-color: var(--pvh-line);
+    }
+
+    @media (max-width: 768px) {
+        h1 {
+            font-size: 2rem !important;
+        }
+
+        [data-testid="stMetric"] {
+            min-height: 100px;
+        }
+    }
+</style>
 """, unsafe_allow_html=True)
 
 TABLA_PREGALVANIZADO = [
@@ -114,11 +256,12 @@ st.header("ISO 9223 Corrosivity & Commercial Coating Selector")
 st.caption("Analisis integrado: Escaneo de informe geotecnico (Gemini AI) y calculo automatico de recubrimientos solares.")
 
 st.sidebar.markdown("### Ubicacion del Proyecto")
-latitud = st.sidebar.number_input("Latitud", value=39.4700, format="%.4f")
-longitud = st.sidebar.number_input("Longitud", value=-0.3764, format="%.4f")
+latitud = st.sidebar.number_input("Latitud", min_value=-90.0, max_value=90.0, value=39.4700, format="%.4f")
+longitud = st.sidebar.number_input("Longitud", min_value=-180.0, max_value=180.0, value=-0.3764, format="%.4f")
 st.sidebar.markdown("---")
 st.sidebar.markdown("### Diseno de Estructura")
 t_anos = st.sidebar.slider("Periodo de diseno t (anos)", 10, 50, 30, step=5)
+st.sidebar.caption("Datos climaticos: NASA POWER - promedio de 15 anos")
 
 col_izq, col_der = st.columns([0.45, 0.55], gap="medium")
 
