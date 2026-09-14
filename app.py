@@ -195,7 +195,8 @@ def seleccionar_oferta_pvh(cat_code, t_anos, d_acumulado_zn):
 
     return oferta_tipo, rec_recomendado, espesor_rec, justificacion
 
-# 3. FUNCIONES DE LECTURA E IA CON GEMINI
+
+# 3. FUNCIONES DE LECTURA E IA CON GEMINI (VISOR INFORMATIVO SIN AUTO-SELECCIÓN)
 def extraer_texto_pdf(pdf_file):
     reader = pypdf.PdfReader(pdf_file)
     texto = ""
@@ -212,14 +213,28 @@ def analizar_informe_pvh_gemini(texto_pdf, api_key_input=""):
     client = genai.Client(api_key=api_key)
     
     prompt = f"""
-    Eres un ingeniero especialista en corrosión y estructuras solares de PV Hardware (PVH).
-    Analiza el siguiente texto extraído de un estudio geotécnico/ambiental de un cliente y extrae de forma muy sintética y clara los datos clave de corrosión:
+    Eres un experto en corrosión y estructuras solares de PV Hardware (PVH).
+    Analiza el siguiente informe técnico/geotécnico y devuelve un VISOR TÉCNICO ESTRUCTURADO en formato Markdown.
+    NO tomes decisiones automáticas, solo extrae y presenta los datos con claridad para que el usuario pueda revisarlos e introducirlos en la calculadora.
 
-    1. **Corrosividad Atmosférica (ISO 9223):** Categoría ambiental (C1 a CX) o tasa de corrosión del Zinc ($r_{{cz}}$) en el aire si se menciona.
-    2. **Corrosividad del Suelo (DIN 50929-3 / ASTM):** Resistividad (Ohm.m), pH, Sulfatos, Cloruros, Acidez Baumann-Gully y grado de agresividad para el acero/zinc.
-    3. **Tasas de Corrosión del Zinc en Suelo:** Pérdida en µm/año y recubrimiento/espesor recomendado por el laboratorio de estudio.
-    4. **Recomendaciones de Ingeniería:** Observaciones para hincas, pre-drilling, recubrimientos o protección de seguidores fotovoltaicos.
-    5. **Valores Recomendados para Ajustar Inputs en la App:** Indica valores numéricos sugeridos de SO2 (mg/m²·d) y Cl- (mg/m²·d) para simular este proyecto en la calculadora ambiental de PVH.
+    Estructura la respuesta exactamente en estas 4 secciones:
+
+    ### 🏭 1. PARÁMETROS ATMOSFÉRICOS (ISO 9223)
+    - **Contaminación por SO2:** (Valores en mg/m²·d detectados o nivel de agresión industrial mencionado).
+    - **Cloruros / Cercanía al Mar:** (Distancia a la costa detectada o valores en mg/m²·d de Cl-).
+    - **Sugerencia de Lectura para el Usuario:** Indica qué escenario de los desplegables (P0-P3 para SO2 / S0-S3 para Cl-) parece adaptarse mejor al informe para que el usuario lo verifique en la barra lateral.
+
+    ### 🪨 2. CORROSIVIDAD EN SUELO (DIN 50929-3 / GEOTÉCNICO)
+    - **Resistividad del suelo:** (en Ohm.m).
+    - **pH y Acidez:** (Valores numéricos de pH).
+    - **Sulfatos y Cloruros en Suelo:** (en mg/kg o ppm).
+    - **Tasa de corrosión del Zinc en Suelo:** (si se indica en µm/año).
+
+    ### ⚠️ 3. RECOMENDACIONES Y ALERTAS DEL ESTUDIO
+    - (Resumen breve de recomendaciones del laboratorio sobre recubrimientos, hincas, pre-drilling o protección catódica).
+
+    ### 📋 4. SÍNTESIS DE VALORES DETECTADOS
+    - Crea una pequeña tabla resumen en Markdown con los parámetros numéricos extraídos (Parámetro | Valor Encontrado | Unidad | Observaciones).
 
     Texto del informe:
     {texto_pdf[:30000]}
@@ -317,22 +332,26 @@ tab_calc, tab_pdf, tab_tablas, tab_mapa = st.tabs([
 ])
 
 with tab_pdf:
-    st.subheader("🤖 Analizador de Informes Geotécnicos con Google Gemini")
-    st.write("Sube el estudio geotécnico o ambiental en PDF provisto por el cliente para extraer automáticamente los parámetros clave de corrosividad (aire y suelo).")
+    st.subheader("📄 Visor de Extracción de Datos Geotécnicos (Gemini AI)")
+    st.write("Sube el estudio técnico en PDF. La IA escaneará el documento y mostrará un **visor informativo estructurado** con los datos clave detectados para que los revises antes de ajustar los desplegables de la calculadora.")
     
     uploaded_pdf = st.file_uploader("Cargar informe técnico en PDF", type=["pdf"])
     api_key_input = st.text_input("Gemini API Key (opcional si está guardada en los Secretos de Streamlit)", type="password")
     
     if uploaded_pdf is not None:
-        if st.button("🔍 Analizar PDF con Gemini IA"):
+        if st.button("🔍 Escanear e Extraer Datos del PDF"):
             api_key = api_key_input or st.secrets.get("GEMINI_API_KEY", "")
-            with st.spinner("Leyendo documento y analizando secciones de corrosión con Gemini IA..."):
+            with st.spinner("Escaneando el informe técnico con Gemini IA..."):
                 try:
                     texto_doc = extraer_texto_pdf(uploaded_pdf)
                     resumen_gemini = analizar_informe_pvh_gemini(texto_doc, api_key)
                     
-                    st.success("✅ Análisis técnico completado por Gemini IA:")
-                    st.markdown(resumen_gemini)
+                    st.success("✅ Extracción del informe completada. Revisa los datos en el visor:")
+                    
+                    # VISOR EN CAJA ESTRUCTURADA
+                    with st.container(border=True):
+                        st.markdown(resumen_gemini)
+                        
                 except Exception as e:
                     st.error(f"❌ Error al procesar el documento: {str(e)}")
 
