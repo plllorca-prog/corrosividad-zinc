@@ -16,7 +16,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ESTILOS CSS OFICIALES PVH (ESTILO PVHARDWARE.COM)
+# ESTILOS CSS OFICIALES PVH (DISEÑO AVANZADO CORPORATIVO)
 st.markdown("""
 
 """, unsafe_allow_html=True)
