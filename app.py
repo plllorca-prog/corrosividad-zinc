@@ -12,101 +12,14 @@ from google import genai
 st.set_page_config(
     page_title="PVH | ISO 9223 & Commercial Coating Selector",
     page_icon="☀️",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
 # ESTILOS CSS ESTILO PVH DE ALTO IMPACTO VISUAL
 st.markdown("""
-    <style>
-    .stButton>button {
-        background-color: #E05A10 !important;
-        color: white !important;
-        border-radius: 6px !important;
-        font-weight: bold !important;
-        border: none !important;
-        height: 3em !important;
-        width: 100%;
-    }
-    .stButton>button:hover {
-        background-color: #FF6A13 !important;
-        box-shadow: 0 4px 12px rgba(224, 90, 16, 0.4) !important;
-    }
-    .pvh-header {
-        font-size: 28px;
-        font-weight: 800;
-        color: #FFFFFF;
-        margin-bottom: 2px;
-    }
-    .pvh-subtitle {
-        font-size: 15px;
-        color: #94A3B8;
-        margin-bottom: 20px;
-    }
-    .pvh-badge {
-        background-color: #E05A10;
-        color: white;
-        padding: 4px 12px;
-        border-radius: 4px;
-        font-size: 12px;
-        font-weight: bold;
-        letter-spacing: 1px;
-    }
-    /* TARJETAS HIGHLIGHT PVH */
-    .hero-card {
-        background-color: #1E293B;
-        border-radius: 12px;
-        padding: 24px;
-        text-align: center;
-        border: 2px solid #334155;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-        margin-bottom: 20px;
-    }
-    .hero-title {
-        font-size: 14px;
-        text-transform: uppercase;
-        letter-spacing: 1.5px;
-        color: #94A3B8;
-        font-weight: 700;
-        margin-bottom: 8px;
-    }
-    .hero-value-cat {
-        font-size: 48px;
-        font-weight: 900;
-        color: #FF5500;
-        margin: 0;
-        line-height: 1.1;
-    }
-    .hero-value-mat {
-        font-size: 42px;
-        font-weight: 900;
-        color: #10B981;
-        margin: 0;
-        line-height: 1.1;
-    }
-    .hero-subtext {
-        font-size: 14px;
-        color: #CBD5E1;
-        margin-top: 8px;
-        font-weight: 500;
-    }
-    .secondary-metric {
-        background-color: #0F172A;
-        border-radius: 8px;
-        padding: 12px;
-        text-align: center;
-        border: 1px solid #1E293B;
-    }
-    .secondary-title {
-        font-size: 12px;
-        color: #64748B;
-        font-weight: 600;
-    }
-    .secondary-value {
-        font-size: 20px;
-        color: #F8FAFC;
-        font-weight: 700;
-    }
-    </style>
+st.markdown("""
+    
 """, unsafe_allow_html=True)
 
 # TABLAS DE REFERENCIA DE RECUBRIMIENTOS PVH
@@ -121,7 +34,6 @@ TABLA_PREGALVANIZADO = [
     {"Designacion": "Z450 (G140)", "Espesor_um": 32.0, "Tipo": "Oferta Especial"},
     {"Designacion": "Z600 (G185)", "Espesor_um": 42.0, "Tipo": "Oferta Especial"},
 ]
-
 TABLA_MAGNELIS = [
     {"Designacion": "ZM70", "Espesor_um": 5.0, "Eq_Zinc_um": 15.0},
     {"Designacion": "ZM90", "Espesor_um": 7.0, "Eq_Zinc_um": 21.0},
@@ -134,7 +46,7 @@ TABLA_MAGNELIS = [
     {"Designacion": "ZM620", "Espesor_um": 50.0, "Eq_Zinc_um": 150.0},
 ]
 
-# 1. CÁLCULO DE CORROSIVIDAD ISO 9223 & EXPONENCIAL PVH
+# CÁLCULOS PVH
 def calcular_corrosividad_pvh(T, RH, P_D, S_D, t_anos):
     if T <= 10:
         f_Zn = 0.038 * (T - 10)
@@ -161,32 +73,27 @@ def calcular_corrosividad_pvh(T, RH, P_D, S_D, t_anos):
 
     return round(r_cz, 2), round(d_acumulado_zn, 2), categoria, cat_code
 
-# 2. LÓGICA COMERCIAL PVH (Z275 VALIDO HASTA 25.0 µm)
 def seleccionar_oferta_pvh(cat_code, t_anos, d_acumulado_zn):
     if d_acumulado_zn <= 25.0:
         oferta_tipo = "Oferta Común (Estándar)"
         rec_recomendado = "Z275 (G90)"
         espesor_rec = "20.0 µm por cara (Válido comercialmente hasta 25.0 µm)"
         justificacion = f"Degradación acumulada ({d_acumulado_zn} µm) ≤ 25.0 µm. Cubierto por la oferta estándar Z275."
-        
     elif d_acumulado_zn <= 35.0:
         oferta_tipo = "Oferta Común (Nivel 35 µm)"
         rec_recomendado = "Z350 / ZM310"
         espesor_rec = "25.0 µm ZM310 (Eq. 75 µm Zinc) ó 25.0 µm Z350"
         justificacion = f"Degradación acumulada ({d_acumulado_zn} µm) supera los 25.0 µm. Requiere salto a recubrimiento Z350 / ZM310."
-        
     elif d_acumulado_zn <= 105.0:
         oferta_tipo = "Oferta Grande / Cliente Importante"
         rec_recomendado = "ZM430"
         espesor_rec = "35.0 µm por cara (Eq. 105 µm Zinc)"
         justificacion = f"Degradación acumulada ({d_acumulado_zn} µm) excede los 35.0 µm. Requiere ZM430."
-        
     elif d_acumulado_zn <= 150.0:
         oferta_tipo = "Oferta Grande / Cliente Importante"
         rec_recomendado = "ZM620"
         espesor_rec = "50.0 µm por cara (Eq. 150 µm Zinc)"
         justificacion = "Degradación elevada. Requiere recubrimiento pesado ZM620."
-        
     else:
         oferta_tipo = "Oferta Grande / Cliente Importante"
         rec_recomendado = "Galvanizado HDG / Dúplex"
@@ -194,9 +101,7 @@ def seleccionar_oferta_pvh(cat_code, t_anos, d_acumulado_zn):
         justificacion = "Ambiente de extrema agresividad (C5/CX)."
 
     return oferta_tipo, rec_recomendado, espesor_rec, justificacion
-
-
-# 3. FUNCIONES DE LECTURA E IA CON GEMINI (VISOR INFORMATIVO SIN AUTO-SELECCIÓN)
+    # EXTRACCIÓN Y LECTURA DE PDF
 def extraer_texto_pdf(pdf_file):
     reader = pypdf.PdfReader(pdf_file)
     texto = ""
@@ -206,267 +111,195 @@ def extraer_texto_pdf(pdf_file):
 
 def analizar_informe_pvh_gemini(texto_pdf, api_key_input=""):
     api_key = api_key_input or st.secrets.get("GEMINI_API_KEY", "")
-    
     if not api_key:
         raise ValueError("No se encontró una API Key de Gemini válida.")
         
     client = genai.Client(api_key=api_key)
-    
     prompt = f"""
     Eres un experto en corrosión y estructuras solares de PV Hardware (PVH).
-    Analiza el siguiente informe técnico/geotécnico y devuelve un VISOR TÉCNICO ESTRUCTURADO en formato Markdown.
-    NO tomes decisiones automáticas, solo extrae y presenta los datos con claridad para que el usuario pueda revisarlos e introducirlos en la calculadora.
-
-    Estructura la respuesta exactamente en estas 4 secciones:
+    Analiza el siguiente informe técnico y devuelve un VISOR TÉCNICO ESTRUCTURADO en Markdown.
+    NO tomes decisiones automáticas, solo extrae los datos con claridad para que el usuario pueda revisarlos:
 
     ### 🏭 1. PARÁMETROS ATMOSFÉRICOS (ISO 9223)
-    - **Contaminación por SO2:** (Valores en mg/m²·d detectados o nivel de agresión industrial mencionado).
-    - **Cloruros / Cercanía al Mar:** (Distancia a la costa detectada o valores en mg/m²·d de Cl-).
-    - **Sugerencia de Lectura para el Usuario:** Indica qué escenario de los desplegables (P0-P3 para SO2 / S0-S3 para Cl-) parece adaptarse mejor al informe para que el usuario lo verifique en la barra lateral.
+    - **SO2:** (Valores o nivel industrial).
+    - **Cloruros / Costa:** (Distancia al mar o Cl-).
+    - **Sugerencia:** (Indica el escenario P0-P3 o S0-S3 recomendado para revisar).
 
-    ### 🪨 2. CORROSIVIDAD EN SUELO (DIN 50929-3 / GEOTÉCNICO)
-    - **Resistividad del suelo:** (en Ohm.m).
-    - **pH y Acidez:** (Valores numéricos de pH).
-    - **Sulfatos y Cloruros en Suelo:** (en mg/kg o ppm).
-    - **Tasa de corrosión del Zinc en Suelo:** (si se indica en µm/año).
+    ### 🪨 2. CORROSIVIDAD EN SUELO (GEOTÉCNICO)
+    - **Resistividad:** (Ohm.m), **pH**, **Sulfatos/Cloruros** y **Tasa Zinc en suelo** (µm/año).
 
-    ### ⚠️ 3. RECOMENDACIONES Y ALERTAS DEL ESTUDIO
-    - (Resumen breve de recomendaciones del laboratorio sobre recubrimientos, hincas, pre-drilling o protección catódica).
+    ### ⚠️ 3. ALERTAS Y RECOMENDACIONES
+    - (Resumen breve sobre recubrimientos o hincas).
 
-    ### 📋 4. SÍNTESIS DE VALORES DETECTADOS
-    - Crea una pequeña tabla resumen en Markdown con los parámetros numéricos extraídos (Parámetro | Valor Encontrado | Unidad | Observaciones).
-
-    Texto del informe:
+    Texto:
     {texto_pdf[:30000]}
     """
-    
     response = client.models.generate_content(
         model="gemini-3.6-flash",
         contents=prompt
     )
     return response.text
 
-# 4. CONEXIÓN API NASA POWER
 @st.cache_data(ttl=86400)
 def obtener_clima_nasa_15anos(lat, lon, num_anos=15):
     ano_fin = datetime.datetime.now().year - 1
     ano_inicio = ano_fin - num_anos + 1
-    
     url = "https://power.larc.nasa.gov/api/temporal/daily/point"
     params = {
-        'parameters': 'T2M,RH2M',
-        'community': 'AG',
-        'longitude': lon,
-        'latitude': lat,
-        'start': f'{ano_inicio}0101',
-        'end': f'{ano_fin}1231',
-        'format': 'JSON'
+        'parameters': 'T2M,RH2M', 'community': 'AG',
+        'longitude': lon, 'latitude': lat,
+        'start': f'{ano_inicio}0101', 'end': f'{ano_fin}1231', 'format': 'JSON'
     }
-    
     try:
         response = requests.get(url, params=params, timeout=20)
         if response.status_code == 200:
             data = response.json()
             param_data = data['properties']['parameter']
-            
             temp_vals = [v for v in param_data['T2M'].values() if v != -999]
             rh_vals = [v for v in param_data['RH2M'].values() if v != -999]
-            
             if temp_vals and rh_vals:
-                T_media = round(float(np.mean(temp_vals)), 2)
-                RH_media = round(float(np.mean(rh_vals)), 2)
-                return T_media, RH_media, ano_inicio, ano_fin, len(temp_vals)
-            else:
-                return None, None, ano_inicio, ano_fin, 0
-        else:
-            return None, None, ano_inicio, ano_fin, 0
+                return round(float(np.mean(temp_vals)), 2), round(float(np.mean(rh_vals)), 2), ano_inicio, ano_fin, len(temp_vals)
     except Exception:
-        return None, None, ano_inicio, ano_fin, 0
+        pass
+    return None, None, ano_inicio, ano_fin, 0
+    # INTERFAZ DE USUARIO SPLIT-SCREEN
+st.markdown('PV HARDWARE (PVH) ENGINEERING TOOL', unsafe_allow_html=True)
+st.markdown('
+', unsafe_allow_html=True)
+st.markdown('
 
-# CABECERA INSTITUCIONAL PVH
-st.markdown('<span class="pvh-badge">PV HARDWARE (PVH) ENGINEERING TOOL</span>', unsafe_allow_html=True)
-st.markdown('<div class="pvh-header">⚡ ISO 9223 Corrosivity & Commercial Coating Selector</div>', unsafe_allow_html=True)
-st.markdown('<div class="pvh-subtitle">Cálculo de degradación exponencial b-zinc (0.813) y recomendación de catálogo comercial PVH (Z275 / Z350 / ZM310 / ZM430).</div>', unsafe_allow_html=True)
+Análisis integrado: Escaneo de informe geotécnico (Gemini AI) y cálculo automático de recubrimientos solares.
 
-# BARRA LATERAL
-st.sidebar.markdown("### ☀️ PVH Project Location")
+', unsafe_allow_html=True)
+st.sidebar.markdown("### ☀️ Ubicación del Proyecto")
 latitud = st.sidebar.number_input("Latitud", value=39.4700, format="%.4f")
 longitud = st.sidebar.number_input("Longitud", value=-0.3764, format="%.4f")
-
 st.sidebar.markdown("---")
-st.sidebar.markdown("### ⏱️ Parámetros de Diseño PVH")
+st.sidebar.markdown("### ⏱️ Diseño de Estructura")
 t_anos = st.sidebar.slider("Periodo de diseño t (años)", 10, 50, 30, step=5)
+col_izq, col_der = st.columns([0.45, 0.55], gap="medium")
+with col_izq:
+st.subheader("📄 Visor de Extracción de PDF (Gemini AI)")
+uploaded_pdf = st.file_uploader("Cargar estudio geotécnico / ambiental", type=["pdf"])
+if "resultado_pdf_pvh" not in st.session_state:
+    st.session_state.resultado_pdf_pvh = None
 
-st.sidebar.markdown("---")
-st.sidebar.markdown("### 🏭 Contaminantes Ambientales (ISO 9223)")
+if uploaded_pdf is not None:
+    if st.button("🔍 Escanear PDF con Gemini IA"):
+        with st.spinner("Escaneando informe técnico..."):
+            try:
+                texto_doc = extraer_texto_pdf(uploaded_pdf)
+                st.session_state.resultado_pdf_pvh = analizar_informe_pvh_gemini(texto_doc)
+                st.success("✅ Datos extraídos correctamente.")
+            except Exception as e:
+                st.error(f"❌ Error al procesar: {str(e)}")
 
-opciones_so2 = {
-    "Industrial Pesado / Minería (P3: 80 mg/m²·d)": 80.0,
-    "Industrial Moderado (P2: 50 mg/m²·d)": 50.0,
-    "Urbano / Industrial ligero (P1: 25 mg/m²·d)": 25.0,
-    "Rural / Limpio (P0: ≤ 10 mg/m²·d)": 10.0,
-    "Personalizado": -1.0
-}
-sel_so2 = st.sidebar.selectbox("Escenario SO2", list(opciones_so2.keys()))
-P_D = st.sidebar.slider("SO2 manual (mg/m²·d)", 1.0, 200.0, 50.0) if opciones_so2[sel_so2] == -1.0 else opciones_so2[sel_so2]
-
-opciones_cl = {
-    "Interior lejano (> 20 km mar) (S0: ≤ 3 mg/m²·d)": 3.0,
-    "Interior moderado / Costa (S1: 30 mg/m²·d)": 30.0,
-    "Zona costera cercana (1-10 km) (S2: 150 mg/m²·d)": 150.0,
-    "Frente marino / Playa (< 1 km) (S3: 300 mg/m²·d)": 300.0,
-    "Personalizado": -1.0
-}
-sel_cl = st.sidebar.selectbox("Escenario Cl-", list(opciones_cl.keys()))
-S_D = st.sidebar.slider("Cl- manual (mg/m²·d)", 1.0, 500.0, 3.0) if opciones_cl[sel_cl] == -1.0 else opciones_cl[sel_cl]
-
-st.sidebar.markdown("---")
-btn_calcular = st.sidebar.button("⚡ Consultar NASA & Calcular PVH", type="primary")
-
-# PESTAÑAS
-tab_calc, tab_pdf, tab_tablas, tab_mapa = st.tabs([
-    "📊 Análisis y Oferta PVH", 
-    "📄 Analizador Inteligente PDF (Gemini AI)",
-    "📋 Tablas de Referencia PVH", 
-    "🗺️ Emplazamiento Solar"
-])
-
-with tab_pdf:
-    st.subheader("📄 Visor de Extracción de Datos Geotécnicos (Gemini AI)")
-    st.write("Sube el estudio técnico en PDF. La IA escaneará el documento y mostrará un **visor informativo estructurado** con los datos clave detectados para que los revises mientras ajustas la calculadora.")
+if st.session_state.resultado_pdf_pvh is not None:
+    with st.container(border=True):
+        st.markdown(st.session_state.resultado_pdf_pvh)
+else:
+    st.info("💡 Sube un PDF para visualizar los parámetros de SO2, cloruros, resistividad y pH mientras usas la calculadora a la derecha.")
+    # COLUMNA DERECHA: CALCULADORA Y RESULTADOS
+with col_der:
+    st.subheader("📊 Calculadora de Corrosividad Atmosférica")
     
-    uploaded_pdf = st.file_uploader("Cargar informe técnico en PDF", type=["pdf"])
-    api_key_input = st.text_input("Gemini API Key (opcional si está guardada en los Secretos de Streamlit)", type="password")
-    
-    # Inicializar estado en memoria para que no se borre al tocar la barra lateral
-    if "resultado_pdf_pvh" not in st.session_state:
-        st.session_state.resultado_pdf_pvh = None
+    c_so2, c_cl = st.columns(2)
+    with c_so2:
+        opciones_so2 = {
+            "Industrial Pesado (P3: 80 mg/m²·d)": 80.0,
+            "Industrial Moderado (P2: 50 mg/m²·d)": 50.0,
+            "Urbano / Ligero (P1: 25 mg/m²·d)": 25.0,
+            "Rural / Limpio (P0: ≤ 10 mg/m²·d)": 10.0,
+            "Personalizado": -1.0
+        }
+        sel_so2 = st.selectbox("Escenario SO2", list(opciones_so2.keys()))
+        P_D = st.slider("SO2 manual (mg/m²·d)", 1.0, 200.0, 50.0) if opciones_so2[sel_so2] == -1.0 else opciones_so2[sel_so2]
 
-    if uploaded_pdf is not None:
-        if st.button("🔍 Escanear y Extraer Datos del PDF"):
-            api_key = api_key_input or st.secrets.get("GEMINI_API_KEY", "")
-            with st.spinner("Escaneando el informe técnico con Gemini IA..."):
-                try:
-                    texto_doc = extraer_texto_pdf(uploaded_pdf)
-                    # Guardar el resultado en la memoria de sesión
-                    st.session_state.resultado_pdf_pvh = analizar_informe_pvh_gemini(texto_doc, api_key)
-                    st.success("✅ Extracción del informe completada.")
-                except Exception as e:
-                    st.error(f"❌ Error al procesar el documento: {str(e)}")
+    with c_cl:
+        opciones_cl = {
+            "Interior lejano (> 20 km) (S0: ≤ 3 mg/m²·d)": 3.0,
+            "Interior / Costa (S1: 30 mg/m²·d)": 30.0,
+            "Costera cercana (1-10 km) (S2: 150 mg/m²·d)": 150.0,
+            "Frente marino (< 1 km) (S3: 300 mg/m²·d)": 300.0,
+            "Personalizado": -1.0
+        }
+        sel_cl = st.selectbox("Escenario Cl-", list(opciones_cl.keys()))
+        S_D = st.slider("Cl- manual (mg/m²·d)", 1.0, 500.0, 3.0) if opciones_cl[sel_cl] == -1.0 else opciones_cl[sel_cl]
 
-    # Mostrar siempre el visor guardado aunque el usuario toque los desplegables
-    if st.session_state.resultado_pdf_pvh is not None:
-        st.markdown("---")
-        st.info("💡 **Información persistente:** Puedes cambiar a la pestaña 'Análisis y Oferta PVH' o modificar la barra lateral sin perder estos datos.")
-        with st.container(border=True):
-            st.markdown(st.session_state.resultado_pdf_pvh)
+    btn_calcular = st.button("⚡ Consultar NASA & Calcular Oferta PVH", type="primary")
 
-with tab_mapa:
-    st.subheader("Ubicación de la Planta Fotovoltaica")
-    df_mapa = pd.DataFrame({"lat": [latitud], "lon": [longitud]})
-    st.map(df_mapa, zoom=6)
-
-with tab_tablas:
-    col_t1, col_t2 = st.columns(2)
-    with col_t1:
-        st.markdown("#### Pregalvanizado Convencional (Zinc)")
-        st.dataframe(pd.DataFrame(TABLA_PREGALVANIZADO), width="stretch")
-    with col_t2:
-        st.markdown("#### Magnelis® (ZM - Zinc-Aluminio-Magnesio)")
-        st.dataframe(pd.DataFrame(TABLA_MAGNELIS), width="stretch")
-
-with tab_calc:
     if btn_calcular:
-        with st.spinner("Procesando histórico climático de 15 años NASA POWER..."):
-            T, RH, a_inicio, a_fin, total_dias = obtener_clima_nasa_15anos(latitud, longitud, num_anos=15)
+        with st.spinner("Procesando datos climáticos satelitales NASA POWER..."):
+            T, RH, a_inicio, a_fin, total_dias = obtener_clima_nasa_15anos(latitud, longitud)
             
             if T is not None and RH is not None:
                 r_cz, d_acumulado_zn, categoria, cat_code = calcular_corrosividad_pvh(T, RH, P_D, S_D, t_anos)
                 oferta_tipo, rec_recomendado, espesor_rec, justificacion = seleccionar_oferta_pvh(cat_code, t_anos, d_acumulado_zn)
                 
-                # --- BLOQUE DESTACADO "HERO" (CATEGORÍA ISO Y MATERIAL PVH) ---
-                col_hero1, col_hero2 = st.columns(2)
-                
-                with col_hero1:
-                    st.markdown(f"""
-                        <div class="hero-card" style="border-color: #FF5500;">
-                            <div class="hero-title">🌍 CATEGORÍA DE CORROSIVIDAD (ISO 9223)</div>
-                            <div class="hero-value-cat">{categoria}</div>
-                            <div class="hero-subtext">Tasa de degradación atmosférica: <b>{r_cz} µm/año</b></div>
-                        </div>
-                    """, unsafe_allow_html=True)
-
-                with col_hero2:
-                    st.markdown(f"""
-                        <div class="hero-card" style="border-color: #10B981;">
-                            <div class="hero-title">💼 MATERIAL RECOMENDADO PVH ({t_anos} AÑOS)</div>
-                            <div class="hero-value-mat">{rec_recomendado}</div>
-                            <div class="hero-subtext">{espesor_rec}</div>
-                        </div>
-                    """, unsafe_allow_html=True)
-
-                # --- MÉTRICAS SECUNDARIAS ---
-                c1, c2, c3 = st.columns(3)
-                with c1:
-                    st.markdown(f"""
-                        <div class="secondary-metric">
-                            <div class="secondary-title">PÉRDIDA ACUMULADA d({t_anos}a)</div>
-                            <div class="secondary-value">{d_acumulado_zn} µm</div>
-                        </div>
-                    """, unsafe_allow_html=True)
-                with c2:
-                    st.markdown(f"""
-                        <div class="secondary-metric">
-                            <div class="secondary-title">EXPONENTE B-ZINC</div>
-                            <div class="secondary-value">0.813</div>
-                        </div>
-                    """, unsafe_allow_html=True)
-                with c3:
-                    st.markdown(f"""
-                        <div class="secondary-metric">
-                            <div class="secondary-title">ESTRATEGIA PVH</div>
-                            <div class="secondary-value" style="font-size:15px; color:#10B981;">{oferta_tipo}</div>
-                        </div>
-                    """, unsafe_allow_html=True)
-
                 st.markdown("---")
-                st.info(f"💡 **Justificación Técnica Comercial:** _{justificacion}_")
-                
-                st.subheader("📋 Informe Técnico de Ingeniería PVH")
-                
+                col_h1, col_h2 = st.columns(2)
+                with col_h1:
+                    card_html1 = f'
+                    {categoria}
+
+Tasa degradación: {r_cz} µm/año
+
+'
+st.markdown(card_html1, unsafe_allow_html=True)
+with col_h2:
+card_html2 = f'
+
+💼 RECUBRIMIENTO PVH ({t_anos} AÑOS)
+
+{rec_recomendado}
+
+{espesor_rec}
+
+'
+st.markdown(card_html2, unsafe_allow_html=True)
+st.markdown("
+", unsafe_allow_html=True)
+m1, m2, m3 = st.columns(3)
+            with m1:
+                m_html1 = f'
+
+PÉRDIDA ACUMULADA
+
+{d_acumulado_zn} µm
+
+'
+st.markdown(m_html1, unsafe_allow_html=True)
+with m2:
+m_html2 = '
+
+EXPONENTE B-ZINC
+
+0.813
+
+'
+st.markdown(m_html2, unsafe_allow_html=True)
+with m3:
+m_html3 = f'
+
+OFERTA PVH
+
+{oferta_tipo}
+
+'
+st.markdown(m_html3, unsafe_allow_html=True)
+st.info(f"💡 **Justificación Comercial:** _{justificacion}_")
+
+            with st.expander("📋 Ver Informe Técnico Completo y Descargar Excel"):
                 df_resumen = pd.DataFrame({
                     "Parámetro Metrológico / Normativo": [
-                        "Empresa / Solución",
-                        "Coordenadas del Proyecto",
-                        "Periodo Histórico Analizado",
-                        "Temperatura Media Anual (T)",
-                        "Humedad Relativa Media Anual (RH)",
-                        "Categoría Corrosividad ISO 9223",
-                        "Tasa Corrosión Zinc (r_cz)",
-                        "Ecuación Aplicada (t > 20 años)",
-                        "Periodo de Diseño (t)",
-                        "Pérdida Espesor Acumulada d(µm)",
-                        "Tipo de Oferta Comercial",
-                        "Material Recomendado PVH",
-                        "Espesor de Recubrimiento"
+                        "Empresa", "Coordenadas", "Periodo Histórico", "Temp. Media (T)", "Humedad (RH)",
+                        "Categoría ISO 9223", "Tasa Zinc (r_cz)", "Periodo Diseño", "Pérdida Acumulada", "Material Recomendado"
                     ],
                     "Valor Obtenido": [
-                        "PV Hardware (PVH)",
-                        f"Lat {latitud}, Lon {longitud}",
-                        f"{a_inicio} - {a_fin} ({total_dias} días)",
-                        f"{T} °C",
-                        f"{RH} %",
-                        categoria,
-                        f"{r_cz} µm/año",
-                        f"d = r_cz * (t ^ 0.813)",
-                        f"{t_anos} años",
-                        f"{d_acumulado_zn} µm (Eq. Zinc)",
-                        oferta_tipo,
-                        rec_recomendado,
-                        espesor_rec
+                        "PV Hardware (PVH)", f"Lat {latitud}, Lon {longitud}", f"{a_inicio}-{a_fin} ({total_dias} días)",
+                        f"{T} °C", f"{RH} %", categoria, f"{r_cz} µm/año", f"{t_anos} años", f"{d_acumulado_zn} µm", rec_recomendado
                     ]
                 })
-                
                 st.table(df_resumen)
                 
                 buffer = io.BytesIO()
@@ -474,10 +307,22 @@ with tab_calc:
                     df_resumen.to_excel(writer, index=False, sheet_name="PVH Offer Report")
                 
                 st.download_button(
-                    label="📥 Descargar Informe Comercial PVH en Excel",
+                    label="📥 Descargar Informe en Excel",
                     data=buffer.getvalue(),
-                    file_name=f"PVH_Offer_Report_{t_anos}yr_Lat{latitud}_Lon{longitud}.xlsx",
+                    file_name=f"PVH_Report_{t_anos}yr_Lat{latitud}_Lon{longitud}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
-            else:
-                st.error("❌ No se pudieron descargar datos satelitales para las coordenadas indicadas.")
+
+            with st.expander("📚 Consultar Tablas de Referencia Comercial PVH"):
+                t1, t2 = st.columns(2)
+                with t1:
+                    st.markdown("**Pregalvanizado (Z)**")
+                    st.dataframe(pd.DataFrame(TABLA_PREGALVANIZADO), height=200)
+                with t2:
+                    st.markdown("**Magnelis® (ZM)**")
+                    st.dataframe(pd.DataFrame(TABLA_MAGNELIS), height=200)
+
+            with st.expander("🗺️ Ver Mapa de la Planta"):
+                st.map(pd.DataFrame({"lat": [latitud], "lon": [longitud]}), zoom=6)
+        else:
+            st.error("❌ No se pudieron obtener los datos satelitales de la NASA para las coordenadas indicadas.")
