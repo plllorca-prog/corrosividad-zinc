@@ -333,27 +333,33 @@ tab_calc, tab_pdf, tab_tablas, tab_mapa = st.tabs([
 
 with tab_pdf:
     st.subheader("📄 Visor de Extracción de Datos Geotécnicos (Gemini AI)")
-    st.write("Sube el estudio técnico en PDF. La IA escaneará el documento y mostrará un **visor informativo estructurado** con los datos clave detectados para que los revises antes de ajustar los desplegables de la calculadora.")
+    st.write("Sube el estudio técnico en PDF. La IA escaneará el documento y mostrará un **visor informativo estructurado** con los datos clave detectados para que los revises mientras ajustas la calculadora.")
     
     uploaded_pdf = st.file_uploader("Cargar informe técnico en PDF", type=["pdf"])
     api_key_input = st.text_input("Gemini API Key (opcional si está guardada en los Secretos de Streamlit)", type="password")
     
+    # Inicializar estado en memoria para que no se borre al tocar la barra lateral
+    if "resultado_pdf_pvh" not in st.session_state:
+        st.session_state.resultado_pdf_pvh = None
+
     if uploaded_pdf is not None:
-        if st.button("🔍 Escanear e Extraer Datos del PDF"):
+        if st.button("🔍 Escanear y Extraer Datos del PDF"):
             api_key = api_key_input or st.secrets.get("GEMINI_API_KEY", "")
             with st.spinner("Escaneando el informe técnico con Gemini IA..."):
                 try:
                     texto_doc = extraer_texto_pdf(uploaded_pdf)
-                    resumen_gemini = analizar_informe_pvh_gemini(texto_doc, api_key)
-                    
-                    st.success("✅ Extracción del informe completada. Revisa los datos en el visor:")
-                    
-                    # VISOR EN CAJA ESTRUCTURADA
-                    with st.container(border=True):
-                        st.markdown(resumen_gemini)
-                        
+                    # Guardar el resultado en la memoria de sesión
+                    st.session_state.resultado_pdf_pvh = analizar_informe_pvh_gemini(texto_doc, api_key)
+                    st.success("✅ Extracción del informe completada.")
                 except Exception as e:
                     st.error(f"❌ Error al procesar el documento: {str(e)}")
+
+    # Mostrar siempre el visor guardado aunque el usuario toque los desplegables
+    if st.session_state.resultado_pdf_pvh is not None:
+        st.markdown("---")
+        st.info("💡 **Información persistente:** Puedes cambiar a la pestaña 'Análisis y Oferta PVH' o modificar la barra lateral sin perder estos datos.")
+        with st.container(border=True):
+            st.markdown(st.session_state.resultado_pdf_pvh)
 
 with tab_mapa:
     st.subheader("Ubicación de la Planta Fotovoltaica")
