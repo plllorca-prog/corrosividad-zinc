@@ -10,11 +10,24 @@ st.caption("Herramienta de consulta rápida para el equipo vía API de EDI - Cap
 
 with st.sidebar:
     st.header("🔑 Autenticación EDI")
-    st.caption("Introduce tus credenciales de sesión obtenidas desde DevTools (F12).")
-    user_session = st.text_input("Cookie Session", type="password", help="Valor completo de la cookie 'session'").strip()
+    with st.expander("❓ ¿Cómo obtener tus credenciales?", expanded=False):
+        st.markdown("""
+        **Pasos en la web de EDI:**
+        1. Entra en [EDI](https://secure.engineeringdirector.com/).
+        2. En el menú lateral ve a **Lithosphere** > **Additional Maps**.
+        3. Desplázate hacia abajo y selecciona el mapa:  
+           **`ISO 9223 Zinc Corrosion Rate - Local Emissions (LE v4)`**.
+        4. Abre DevTools en tu navegador (**F12**).
+        5. Ve a la pestaña **Network** (Red) y haz un clic en cualquier punto del mapa.
+        6. Busca la petición llamada **`point_lookup`**.
+        7. En los encabezados (*Request Headers*):
+           - Copia el texto tras `session=` en **Cookie Session**.
+           - Copia el valor de `x-csrftoken` en **X-CSRFToken**.
+        """)
+
+    user_session = st.text_input("Cookie Session", type="password", help="Valor de la cookie 'session'").strip()
     user_csrftoken = st.text_input("X-CSRFToken", type="password", help="Valor del encabezado 'x-csrftoken'").strip()
     st.info("💡 Cada usuario debe usar sus propias credenciales activas en la web de EDI.")
-
 if "lat" not in st.session_state:
     st.session_state.lat = 40.416700
 if "lng" not in st.session_state:
