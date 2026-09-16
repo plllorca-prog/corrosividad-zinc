@@ -5,17 +5,14 @@ from streamlit_folium import st_folium
 
 st.set_page_config(layout="wide", page_title="Consulta Directa ISO 9223 EDI")
 
-st.title("⚡ Consulta Directa de Corrosividad ISO 9223")
-st.caption("Herramienta de consulta rápida para el equipo vía API de EDI.")
+st.title("⚡ Consulta Directa de Corrosividad ISO 9223 (Local Emissions LE v4)")
+st.caption("Herramienta de consulta rápida para el equipo vía API de EDI - Capa LE v4 (Raster 436).")
 
-# Configuración en la barra lateral para autenticación individual
 with st.sidebar:
     st.header("🔑 Autenticación EDI")
     st.caption("Introduce tus credenciales de sesión obtenidas desde DevTools (F12).")
-    
     user_session = st.text_input("Cookie Session", type="password", help="Valor completo de la cookie 'session'").strip()
     user_csrftoken = st.text_input("X-CSRFToken", type="password", help="Valor del encabezado 'x-csrftoken'").strip()
-    
     st.info("💡 Cada usuario debe usar sus propias credenciales activas en la web de EDI.")
 
 if "lat" not in st.session_state:
@@ -23,24 +20,22 @@ if "lat" not in st.session_state:
 if "lng" not in st.session_state:
     st.session_state.lng = -3.703700
 
-col_inputs, col_mapa = st.columns([1, 2.2])
+col_inputs, col_mapa = st.columns([1.5, 2])
 
 def obtener_corrosion_api(lat, lng, session_cookie, csrf_token):
-    url = "https://secure.engineeringdirector.com/api/aiq/parent_raster/322/point_lookup"
-    
+    # Endpoint fijado a la capa 436 (Local Emissions LE v4)
+    url = "https://secure.engineeringdirector.com/api/aiq/parent_raster/436/point_lookup"
     headers = {
         "accept": "*/*",
         "content-type": "application/json",
         "origin": "https://secure.engineeringdirector.com",
-        "referer": "https://secure.engineeringdirector.com/map/ISO9223_zinc_2020_2024_1km",
+        "referer": "https://secure.engineeringdirector.com/map/ISO9223_zinc_local_emissions_v4",
         "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36",
         "x-csrftoken": csrf_token
     }
-    
     cookies = {
         "session": session_cookie
     }
-    
     payload = {
         "points": [
             {
@@ -49,7 +44,6 @@ def obtener_corrosion_api(lat, lng, session_cookie, csrf_token):
             }
         ]
     }
-    
     try:
         response = requests.post(url, json=payload, headers=headers, cookies=cookies, timeout=10)
         if response.status_code == 200:
@@ -64,7 +58,6 @@ def obtener_corrosion_api(lat, lng, session_cookie, csrf_token):
 
 with col_inputs:
     st.subheader("📍 Coordenadas Consulta")
-    
     lat_input = st.number_input("Latitud", value=st.session_state.lat, format="%.6f", step=0.0001)
     lng_input = st.number_input("Longitud", value=st.session_state.lng, format="%.6f", step=0.0001)
     
@@ -74,8 +67,7 @@ with col_inputs:
         else:
             st.session_state.lat = round(lat_input, 6)
             st.session_state.lng = round(lng_input, 6)
-            
-            with st.spinner("Consultando API de EDI..."):
+            with st.spinner("Consultando API de EDI (Capa 436 - LE v4)..."):
                 data, err = obtener_corrosion_api(
                     st.session_state.lat, 
                     st.session_state.lng, 
@@ -92,34 +84,48 @@ with col_inputs:
     if "resultado" in st.session_state:
         st.subheader("📊 Resultado Obtenido")
         res_data = st.session_state.resultado
-        
         try:
             results_list = res_data.get("results", [])
             units = res_data.get("units", "µm/yr")
-            
             if results_list:
                 first_res = results_list[0]
                 valor = first_res.get("value", None)
-                
                 categoria = "N/A"
                 secondary = first_res.get("secondary_scoring", [])
                 if secondary and isinstance(secondary, list):
                     categoria = secondary[0].get("result", "N/A")
                 
+                val_str = f"{valor:.3f} {units}" if valor is not None else "N/A"
+                cat_str = f"C{categoria}" if categoria != "N/A" else "N/A"
+                
                 m1, m2 = st.columns(2)
                 with m1:
-                    if valor is not None:
-                        st.metric(label="Tasa de Corrosión", value=f"{valor:.3f} {units}")
-                    else:
-                        st.metric(label="Tasa de Corrosión", value="N/A")
-                
+                    st.markdown(
+                        f"""
+Tasa de Corrosión
+
+
+{val_str}
+
+                        """,
+                        unsafe_allow_html=True
+                    )
                 with m2:
-                    st.metric(label="Categoría ISO 9223 (Zinc)", value=f"C{categoria}" if categoria != "N/A" else "N/A")
-                
-                with st.expander("🔍 Ver respuesta JSON original"):
-                    st.json(res_data)
+                    st.markdown(
+                        f"""
+
+Categoría ISO 9223
+
+
+{cat_str}
+
+                        """,
+                        unsafe_allow_html=True
+                    )
             else:
                 st.warning("No se encontraron resultados para esta ubicación.")
+            st.write("")
+            with st.expander("🔍 Ver respuesta JSON original"):
                 st.json(res_data)
         except Exception:
             st.json(res_data)
@@ -127,7 +133,7 @@ with col_inputs:
 with col_mapa:
     st.subheader("Ubicación Seleccionada")
     m = folium.Map(
-        location=[st.session_state.lat, st.session_state.lng], 
+        location=[st.session_state.lat, st.session_state.lng],
         zoom_start=11,
         tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
         attr="Esri World Street Map"
