@@ -1,7 +1,4 @@
 streamlit
 requests
-numpy
-pandas
-openpyxl
-pypdf
-google-genai
+folium
+streamlit-folium
