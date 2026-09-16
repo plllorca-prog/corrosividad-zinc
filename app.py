@@ -91,7 +91,38 @@ with col_inputs:
     
     if "resultado" in st.session_state:
         st.subheader("📊 Resultado Obtenido")
-        st.json(st.session_state.resultado)
+        res_data = st.session_state.resultado
+        
+        try:
+            results_list = res_data.get("results", [])
+            units = res_data.get("units", "µm/yr")
+            
+            if results_list:
+                first_res = results_list[0]
+                valor = first_res.get("value", None)
+                
+                categoria = "N/A"
+                secondary = first_res.get("secondary_scoring", [])
+                if secondary and isinstance(secondary, list):
+                    categoria = secondary[0].get("result", "N/A")
+                
+                m1, m2 = st.columns(2)
+                with m1:
+                    if valor is not None:
+                        st.metric(label="Tasa de Corrosión", value=f"{valor:.3f} {units}")
+                    else:
+                        st.metric(label="Tasa de Corrosión", value="N/A")
+                
+                with m2:
+                    st.metric(label="Categoría ISO 9223 (Zinc)", value=f"C{categoria}" if categoria != "N/A" else "N/A")
+                
+                with st.expander("🔍 Ver respuesta JSON original"):
+                    st.json(res_data)
+            else:
+                st.warning("No se encontraron resultados para esta ubicación.")
+                st.json(res_data)
+        except Exception:
+            st.json(res_data)
 
 with col_mapa:
     st.subheader("Ubicación Seleccionada")
