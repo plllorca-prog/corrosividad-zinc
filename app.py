@@ -9,10 +9,6 @@ st.set_page_config(layout="wide", page_title="Consulta ISO 9223 EDI - Mapa Públ
 st.title("⚡ Consulta Directa de Corrosividad ISO 9223 (EDI Público)")
 st.caption("Herramienta de consulta comparativa rápida usando los endpoints públicos de EDI.")
 
-st.title("⚡ Consulta Directa de Corrosividad ISO 9223 (EDI Público)")
-st.caption("Herramienta de consulta comparativa rápida usando los endpoints públicos de EDI.")
-
-# --- NUEVO DESPLEGABLE EN LA PANTALLA PRINCIPAL ---
 with st.expander("❓ ¿Cómo obtener los tokens de invitado gratuitos?", expanded=False):
     st.markdown("""
     **Pasos rápidos para sacar los tokens sin cuenta de pago:**
@@ -23,7 +19,6 @@ with st.expander("❓ ¿Cómo obtener los tokens de invitado gratuitos?", expand
     5. Busca la petición llamada **`point_lookup`** en la lista y haz clic en ella.
     6. En la pestaña *Headers* > *Request Headers*, copia el texto tras `session=` y el valor de `x-csrftoken`.
     """)
-# --------------------------------------------------
 
 # IDs de las dos capas en EDI 
 RASTER_LE_V4 = 436
@@ -32,13 +27,6 @@ RASTER_ZINC_ESTANDAR = 322
 with st.sidebar:
     st.header("🔑 Autenticación EDI")
     st.success("✅ **Modo Público:** No hace falta iniciar sesión en EDI.")
-    
-    user_session = st.text_input("Cookie Session", type="password", help="Valor de la cookie 'session'").strip()
-    user_csrftoken = st.text_input("X-CSRFToken", type="password", help="Valor del encabezado 'x-csrftoken'").strip()
-
-with st.sidebar:
-    st.header("🔑 Autenticación EDI")
-    st.info("Introduce el 'Session' y 'X-CSRFToken' obtenidos como invitado en el mapa público de EDI.")
     
     user_session = st.text_input("Cookie Session", type="password", help="Valor de la cookie 'session'").strip()
     user_csrftoken = st.text_input("X-CSRFToken", type="password", help="Valor del encabezado 'x-csrftoken'").strip()
@@ -58,7 +46,6 @@ def consultar_raster(raster_id, lat, lng, session_cookie, csrf_token):
         "accept": "*/*",
         "content-type": "application/json",
         "origin": "https://secure.engineeringdirector.com",
-        # REFERER ADAPTADO A LA VERSIÓN PÚBLICA PARA EVITAR EL BLOQUEO
         "referer": "https://secure.engineeringdirector.com/public/map/ISO9223_zinc_2020_2024_1km",
         "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
         "x-csrftoken": csrf_token
@@ -134,57 +121,3 @@ with col_inputs:
             if val_le is not None:
                 st.markdown(
                     f"""
-                    <div style="background-color: #f0f2f6; padding: 12px; border-radius: 8px; border-left: 5px solid #0066cc; margin-bottom: 10px;">
-                        <span style="font-size: 13px; color: #555; font-weight: bold;">Tasa de Corrosión (r)</span><br>
-                        <span style="font-size: 18px; font-weight: bold; color: #111;">{val_le:.3f} µm/año</span>
-                    </div>
-                    <div style="background-color: #f0f2f6; padding: 12px; border-radius: 8px; border-left: 5px solid #28a745;">
-                        <span style="font-size: 13px; color: #555; font-weight: bold;">Categoría ISO 9223</span><br>
-                        <span style="font-size: 18px; font-weight: bold; color: #111;">{cat_le}</span>
-                    </div>
-                    """, unsafe_allow_html=True
-                )
-            else:
-                st.error(res_all.get("err_le", "Sin datos"))
-
-        # --- COLUMNA 2: Zinc ISO Estándar ---
-        with col_res2:
-            st.markdown("##### 🌍 Zinc ISO Estándar")
-            if val_std is not None:
-                st.markdown(
-                    f"""
-                    <div style="background-color: #f0f2f6; padding: 12px; border-radius: 8px; border-left: 5px solid #0066cc; margin-bottom: 10px;">
-                        <span style="font-size: 13px; color: #555; font-weight: bold;">Tasa de Corrosión (r)</span><br>
-                        <span style="font-size: 18px; font-weight: bold; color: #111;">{val_std:.3f} µm/año</span>
-                    </div>
-                    <div style="background-color: #f0f2f6; padding: 12px; border-radius: 8px; border-left: 5px solid #28a745;">
-                        <span style="font-size: 13px; color: #555; font-weight: bold;">Categoría ISO 9223</span><br>
-                        <span style="font-size: 18px; font-weight: bold; color: #111;">{cat_std}</span>
-                    </div>
-                    """, unsafe_allow_html=True
-                )
-            else:
-                st.error(res_all.get("err_std", "Sin datos"))
-
-        st.write("")
-        with st.expander("🔍 Ver respuestas JSON originales"):
-            st.json(res_all)
-
-with col_mapa:
-    st.subheader("Ubicación Seleccionada")
-    m = folium.Map(
-        location=[st.session_state.lat, st.session_state.lng],
-        zoom_start=11,
-        tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
-        attr="Esri World Street Map"
-    )
-    folium.Marker([st.session_state.lat, st.session_state.lng], tooltip="Punto activo").add_to(m)
-    map_data = st_folium(m, width="100%", height=400)
-
-    if map_data and map_data.get("last_clicked"):
-        click_lat = round(map_data["last_clicked"]["lat"], 6)
-        click_lng = round(map_data["last_clicked"]["lng"], 6)
-        if click_lat != st.session_state.lat or click_lng != st.session_state.lng:
-            st.session_state.lat = click_lat
-            st.session_state.lng = click_lng
-            st.rerun()
