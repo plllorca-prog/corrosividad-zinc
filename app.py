@@ -39,18 +39,23 @@ if "lng" not in st.session_state:
 
 col_inputs, col_mapa = st.columns([1.5, 2])
 
-def consultar_raster(raster_id, lat, lng, session_cookie, csrf_token):
-    url = f"https://secure.engineeringdirector.com/api/aiq/parent_raster/{raster_id}/point_lookup"
+def obtener_corrosion_api(lat, lng, session_cookie, csrf_token):
+    # 1. CAMBIA ESTA URL por la 'Request URL' exacta que sale en el point_lookup del mapa público
+    url_publica = "https://secure.engineeringdirector.com/api/aiq/parent_raster/ID_NUEVO/point_lookup" 
+    
     headers = {
         "accept": "*/*",
         "content-type": "application/json",
         "origin": "https://secure.engineeringdirector.com",
-        "referer": "https://secure.engineeringdirector.com/",
-        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36",
+        # 2. CAMBIA EL REFERER por el que copiaste del mapa público
+        "referer": "https://secure.engineeringdirector.com/public/map/ISO9223_zinc_...", 
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
         "x-csrftoken": csrf_token
     }
     cookies = {"session": session_cookie}
     payload = {"points": [{"latitude": float(lat), "longitude": float(lng)}]}
+    
+    # ... resto del código igual ...
     
     try:
         response = requests.post(url, json=payload, headers=headers, cookies=cookies, timeout=10)
