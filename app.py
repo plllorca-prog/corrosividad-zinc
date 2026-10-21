@@ -9,10 +9,32 @@ st.set_page_config(layout="wide", page_title="Consulta ISO 9223 EDI - Mapa Públ
 st.title("⚡ Consulta Directa de Corrosividad ISO 9223 (EDI Público)")
 st.caption("Herramienta de consulta comparativa rápida usando los endpoints públicos de EDI.")
 
+st.title("⚡ Consulta Directa de Corrosividad ISO 9223 (EDI Público)")
+st.caption("Herramienta de consulta comparativa rápida usando los endpoints públicos de EDI.")
+
+# --- NUEVO DESPLEGABLE EN LA PANTALLA PRINCIPAL ---
+with st.expander("❓ ¿Cómo obtener los tokens de invitado gratuitos?", expanded=False):
+    st.markdown("""
+    **Pasos rápidos para sacar los tokens sin cuenta de pago:**
+    1. Abre en una pestaña nueva el [Mapa Público de Zinc ISO](https://secure.engineeringdirector.com/public/map/ISO9223_zinc_2020_2024_1km).
+    2. **NO inicies sesión** (ignora el botón rojo de "Secure Login").
+    3. Abre DevTools en tu navegador (**F12**) y ve a la pestaña **Network** (Red).
+    4. Haz clic en cualquier parte del mapa para generar una consulta.
+    5. Busca la petición llamada **`point_lookup`** en la lista y haz clic en ella.
+    6. En la pestaña *Headers* > *Request Headers*, copia el texto tras `session=` y el valor de `x-csrftoken`.
+    """)
+# --------------------------------------------------
+
 # IDs de las dos capas en EDI 
-# (Atención: Si la versión pública usa IDs distintos en su Request URL, cámbialos aquí)
 RASTER_LE_V4 = 436
 RASTER_ZINC_ESTANDAR = 322
+
+with st.sidebar:
+    st.header("🔑 Autenticación EDI")
+    st.success("✅ **Modo Público:** No hace falta iniciar sesión en EDI.")
+    
+    user_session = st.text_input("Cookie Session", type="password", help="Valor de la cookie 'session'").strip()
+    user_csrftoken = st.text_input("X-CSRFToken", type="password", help="Valor del encabezado 'x-csrftoken'").strip()
 
 with st.sidebar:
     st.header("🔑 Autenticación EDI")
