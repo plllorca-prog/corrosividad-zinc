@@ -1,33 +1,36 @@
 import streamlit as st
 import requests
 import folium
+import json
 from streamlit_folium import st_folium
 
-st.set_page_config(layout="wide", page_title="Consulta ISO 9223 EDI - Mapa Público")
+st.set_page_config(layout="wide", page_title="Consulta ISO 9223 EDI - Doble Capa")
 
-st.title("⚡ Consulta Directa de Corrosividad ISO 9223 (EDI Público)")
-st.caption("Herramienta de consulta comparativa rápida usando los endpoints públicos de EDI.")
+st.title("⚡ Consulta Directa de Corrosividad ISO 9223 (EDI)")
+st.caption("Herramienta de consulta comparativa rápida: Local Emissions (LE v4 - Raster 436) vs. Zinc ISO Estándar (Raster 322).")
 
-with st.expander("❓ ¿Cómo obtener los tokens de invitado gratuitos?", expanded=False):
-    st.markdown("""
-    **Pasos rápidos para sacar los tokens sin cuenta de pago:**
-    1. Abre en una pestaña nueva el [Mapa Público de Zinc ISO](https://secure.engineeringdirector.com/public/map/ISO9223_zinc_2020_2024_1km).
-    2. **NO inicies sesión** (ignora el botón rojo de "Secure Login").
-    3. Abre DevTools en tu navegador (**F12**) y ve a la pestaña **Network** (Red).
-    4. Haz clic en cualquier parte del mapa para generar una consulta.
-    5. Busca la petición llamada **`point_lookup`** en la lista y haz clic en ella.
-    6. En la pestaña *Headers* > *Request Headers*, copia el texto tras `session=` y el valor de `x-csrftoken`.
-    """)
-
+# IDs de las dos capas en EDI
 RASTER_LE_V4 = 436
 RASTER_ZINC_ESTANDAR = 322
 
 with st.sidebar:
     st.header("🔑 Autenticación EDI")
-    st.success("✅ **Modo Público:** No hace falta iniciar sesión en EDI.")
-    
+    with st.expander("❓ ¿Cómo obtener tus credenciales?", expanded=False):
+        st.markdown("""
+        **Pasos en la web de EDI:**
+        1. Entra en [EDI](https://secure.engineeringdirector.com/).
+        2. En el menú lateral ve a **Lithosphere** > **Additional Maps**.
+        3. Abre DevTools en tu navegador (**F12**).
+        4. Ve a la pestaña **Network** (Red) y haz clic en cualquier punto del mapa.
+        5. Busca la petición llamada **`point_lookup`**.
+        6. En los encabezados (*Request Headers*):
+           - Copia el texto tras `session=` en **Cookie Session**.
+           - Copia el valor de `x-csrftoken` en **X-CSRFToken**.
+        """)
+
     user_session = st.text_input("Cookie Session", type="password", help="Valor de la cookie 'session'").strip()
     user_csrftoken = st.text_input("X-CSRFToken", type="password", help="Valor del encabezado 'x-csrftoken'").strip()
+    st.info("💡 Cada usuario debe usar sus propias credenciales activas en la web de EDI.")
 
 if "lat" not in st.session_state:
     st.session_state.lat = 40.416700
@@ -38,12 +41,11 @@ col_inputs, col_mapa = st.columns([1.5, 2])
 
 def consultar_raster(raster_id, lat, lng, session_cookie, csrf_token):
     url = f"https://secure.engineeringdirector.com/api/aiq/parent_raster/{raster_id}/point_lookup"
-    
     headers = {
         "accept": "*/*",
         "content-type": "application/json",
         "origin": "https://secure.engineeringdirector.com",
-        "referer": "https://secure.engineeringdirector.com/public/map/ISO9223_zinc_2020_2024_1km",
+        "referer": "https://secure.engineeringdirector.com/",
         "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
         "x-csrftoken": csrf_token
     }
@@ -56,9 +58,9 @@ def consultar_raster(raster_id, lat, lng, session_cookie, csrf_token):
             try:
                 return response.json(), None
             except Exception:
-                return None, f"Respuesta no válida del servidor."
+                return None, f"Respuesta no válida del servidor: {response.text[:200]}"
         else:
-            return None, f"Error HTTP {response.status_code}: Petición rechazada."
+            return None, f"Error HTTP {response.status_code}: Token o Sesión caducados."
     except Exception as e:
         return None, str(e)
 
@@ -68,9 +70,9 @@ def extraer_datos_respuesta(res_data):
     first_res = res_data["results"][0]
     valor = first_res.get("value", None)
     categoria = "N/A"
-    sec = first_res.get("secondary_scoring", [])
-    if sec and isinstance(sec, list):
-        categoria = sec[0].get("result", "N/A")
+    secondary = first_res.get("secondary_scoring", [])
+    if secondary and isinstance(secondary, list):
+        categoria = secondary[0].get("result", "N/A")
     return valor, f"C{categoria}" if categoria != "N/A" else "N/A"
 
 with col_inputs:
@@ -78,20 +80,26 @@ with col_inputs:
     lat_input = st.number_input("Latitud", value=st.session_state.lat, format="%.6f", step=0.0001)
     lng_input = st.number_input("Longitud", value=st.session_state.lng, format="%.6f", step=0.0001)
     
-    if st.button("🚀 Obtener Dato de Corrosión", type="primary", use_container_width=True):
+    if st.button("🚀 Obtener Dato de Corrosión (Ambos Mapas)", type="primary", use_container_width=True):
         if not user_session or not user_csrftoken:
             st.error("⚠️ Debes ingresar tu 'Cookie Session' y 'X-CSRFToken' en la barra lateral.")
         else:
             st.session_state.lat = round(lat_input, 6)
             st.session_state.lng = round(lng_input, 6)
             
-            with st.spinner("Consultando mapas..."):
-                data_le, err_le = consultar_raster(RASTER_LE_V4, st.session_state.lat, st.session_state.lng, user_session, user_csrftoken)
-                data_std, err_std = consultar_raster(RASTER_ZINC_ESTANDAR, st.session_state.lat, st.session_state.lng, user_session, user_csrftoken)
+            with st.spinner("Consultando capas 436 y 322 en EDI..."):
+                data_le, err_le = consultar_raster(
+                    RASTER_LE_V4, st.session_state.lat, st.session_state.lng, user_session, user_csrftoken
+                )
+                data_std, err_std = consultar_raster(
+                    RASTER_ZINC_ESTANDAR, st.session_state.lat, st.session_state.lng, user_session, user_csrftoken
+                )
                 
                 st.session_state.resultado = {
-                    "le_v4": data_le, "err_le": err_le,
-                    "estandar": data_std, "err_std": err_std
+                    "le_v4": data_le,
+                    "err_le": err_le,
+                    "estandar": data_std,
+                    "err_std": err_std
                 }
 
     st.divider()
@@ -103,31 +111,66 @@ with col_inputs:
         val_le, cat_le = extraer_datos_respuesta(res_all.get("le_v4"))
         val_std, cat_std = extraer_datos_respuesta(res_all.get("estandar"))
         
-        c1, c2 = st.columns(2)
-        with c1:
-            st.markdown("##### 🏬 Local Emissions (LE v4)")
+        col_res1, col_res2 = st.columns(2)
+        
+        with col_res1:
+            st.markdown("##### 🏬 Local Emissions (LE v4 - Raster 436)")
             if val_le is not None:
-                st.metric("Tasa r", f"{val_le:.3f} µm/año")
-                st.metric("Categoría ISO", cat_le)
+                st.markdown(
+                    f"""
+                    <div style="background-color: #f0f2f6; padding: 12px; border-radius: 8px; border-left: 5px solid #0066cc; margin-bottom: 10px;">
+                        <span style="font-size: 13px; color: #555; font-weight: bold;">Tasa de Corrosión (r)</span><br>
+                        <span style="font-size: 18px; font-weight: bold; color: #111;">{val_le:.3f} µm/año</span>
+                    </div>
+                    <div style="background-color: #f0f2f6; padding: 12px; border-radius: 8px; border-left: 5px solid #28a745;">
+                        <span style="font-size: 13px; color: #555; font-weight: bold;">Categoría ISO 9223</span><br>
+                        <span style="font-size: 18px; font-weight: bold; color: #111;">{cat_le}</span>
+                    </div>
+                    """, unsafe_allow_html=True
+                )
             else:
                 st.error(res_all.get("err_le", "Sin datos"))
 
-        with c2:
-            st.markdown("##### 🌍 Zinc ISO Estándar")
+        with col_res2:
+            st.markdown("##### 🌍 Zinc ISO Estándar (Raster 322)")
             if val_std is not None:
-                st.metric("Tasa r", f"{val_std:.3f} µm/año")
-                st.metric("Categoría ISO", cat_std)
+                st.markdown(
+                    f"""
+                    <div style="background-color: #f0f2f6; padding: 12px; border-radius: 8px; border-left: 5px solid #0066cc; margin-bottom: 10px;">
+                        <span style="font-size: 13px; color: #555; font-weight: bold;">Tasa de Corrosión (r)</span><br>
+                        <span style="font-size: 18px; font-weight: bold; color: #111;">{val_std:.3f} µm/año</span>
+                    </div>
+                    <div style="background-color: #f0f2f6; padding: 12px; border-radius: 8px; border-left: 5px solid #28a745;">
+                        <span style="font-size: 13px; color: #555; font-weight: bold;">Categoría ISO 9223</span><br>
+                        <span style="font-size: 18px; font-weight: bold; color: #111;">{cat_std}</span>
+                    </div>
+                    """, unsafe_allow_html=True
+                )
             else:
                 st.error(res_all.get("err_std", "Sin datos"))
 
+        st.write("")
+        with st.expander("🔍 Ver respuestas JSON originales"):
+            st.write("**Respuesta Local Emissions (Raster 436):**")
+            st.json(res_all.get("le_v4", {}))
+            st.write("**Respuesta Zinc ISO Estándar (Raster 322):**")
+            st.json(res_all.get("estandar", {}))
+
 with col_mapa:
     st.subheader("Ubicación Seleccionada")
-    m = folium.Map(location=[st.session_state.lat, st.session_state.lng], zoom_start=11)
-    folium.Marker([st.session_state.lat, st.session_state.lng]).add_to(m)
+    m = folium.Map(
+        location=[st.session_state.lat, st.session_state.lng],
+        zoom_start=11,
+        tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
+        attr="Esri World Street Map"
+    )
+    folium.Marker([st.session_state.lat, st.session_state.lng], tooltip="Punto activo").add_to(m)
     map_data = st_folium(m, width="100%", height=400)
 
     if map_data and map_data.get("last_clicked"):
-        c_lat, c_lng = round(map_data["last_clicked"]["lat"], 6), round(map_data["last_clicked"]["lng"], 6)
-        if c_lat != st.session_state.lat or c_lng != st.session_state.lng:
-            st.session_state.lat, st.session_state.lng = c_lat, c_lng
+        click_lat = round(map_data["last_clicked"]["lat"], 6)
+        click_lng = round(map_data["last_clicked"]["lng"], 6)
+        if click_lat != st.session_state.lat or click_lng != st.session_state.lng:
+            st.session_state.lat = click_lat
+            st.session_state.lng = click_lng
             st.rerun()
